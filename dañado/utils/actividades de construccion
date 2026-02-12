@@ -1,0 +1,182 @@
+Precision Controls & Indirect Variable Chaining
+This plan addresses two user requests: adding precision adjustments for "Additional Variables" (like Mass) and allowing indirect variables to reference other indirect variables in their formulas.
+
+User Review Required
+IMPORTANT
+
+This requires a small schema change: adding precision to 
+VariableConfig
+. Existing JSONs without this field will default to 3 decimal places.
+
+Proposed Changes
+Logic & Data Model
+[MODIFY] 
+types.ts
+Add precision?: number to the 
+VariableConfig
+ interface.
+[MODIFY] 
+App.tsx
+Refactor 
+calculateIndirectValues
+:
+Change the calculation logic from a simple map to a sequential process.
+Accumulate the results of each indirect variable into the values context so subsequent variables can reference them.
+Update Table Rendering:
+In the Table Header (<thead>), find the loop for activeSeries.extraVariables.
+Inject the precision control UI (buttons - / + and badge N d.) similar to Independent/Dependent variables.
+Implementation will verify ev.precision ?? 3.
+Update the 
+(-)
+and 
+(+)
+ handlers to modify the extraVariables array in activeSeries.
+UI Components
+Precision Controls: Use existing Lucide icons (MinusCircle, PlusCircle) and styling consistent with other columns.
+Mixed PDF Orientation (Table Only)
+Update Toggle: Rename "PDF Horizontal" to "Rotar Tabla de Datos" (Rotate Data Table).
+Update generatePDF logic:
+Initialize document in standard Portrait mode (p).
+Data Series Loop:
+If rotateTable is checked:
+Add a new Landscape page: doc.addPage('a4', 'l').
+Reset currentY to top margin.
+Capture data table with full landscape width (approx 280mm).
+Add table image.
+Add a new Portrait page: doc.addPage('a4', 'p').
+Continue rendering subsequent sections (Analysis, Graphs) in Portrait mode.
+Else:
+Render table normally in Portrait mode.
+This ensures only the wide table uses landscape, preserving the document structure for text and graphs.
+UI Refinements
+Fix "rho" Visibility:
+Ensure KaTeX fonts are loaded.
+Check for CSS conflicts hiding the element.
+Fix Contracted Data:
+Add min-width to table cells to prevent crushing.
+Latex Help:
+Add a small help tooltip or text near the Symbol input.
+Dynamic Variable Assignment (Drag & Drop)
+Goal: Allow dragging "Extra" and "Indirect" variables to the "Independent" and "Dependent" column headers to swap them.
+Data Structure Updates:
+VariableConfig
+: Added isCalculated (boolean) and formula (string).
+UI Logic:
+Make <th> elements for Extra Variables and Indirect Variables draggable.
+Make <th> elements for Indep/Dep Variables drop targets (onDragOver, onDrop).
+Swap Logic (
+handleVarDrop
+):
+Source: Extra Variable:
+Back Up Target: Move current Indep/Dep config/data (from row.i or row.d) to a new ExtraVariable.
+Promote Source: Move selected Extra Variable config/data (from row.others) to Indep/Dep slot (row.i or row.d).
+Cleanup: Remove Source from extraVariables list.
+Source: Indirect Variable:
+Back Up Target: Move current Indep/Dep config/data to a new ExtraVariable.
+Promote Source: Apply Indirect Variable config to Indep/Dep slot.
+Configure: Mark new Indep/Dep as isCalculated = true, formula = source.formula.
+Populate: Trigger updateCalculations to populate row.i/row.d values from the formula.
+Cleanup: Remove Source from indirectVariables list (avoid duplication).
+Knowledge Documentation (Skills)
+Three skill folders will be created in .agent/skills/ following the Google standard.
+
+[NEW] 
+json-storage-pdf
+Content: Data model optimization, legacy migration, state management (JSON-based), preparation of measurement arrays for PDF export.
+Goal: Standardize how the data tree is handled and prepared for high-fidelity output.
+[NEW] 
+jspdf-formatting
+Content: Advanced jsPDF usage, landscape orientation for wide tables, html2canvas integration for real-time preview snapshots, calculating ratios.
+Goal: Guide the generation of premium looking scientific reports.
+Soporte de Imágenes en Marco Conceptual
+Permitir que los estudiantes incluyan diagramas, mapas mentales o imágenes directamente en la sección de Marco Conceptual, manteniendo la fidelidad al diseño premium y la premisa de estabilidad.
+
+User Review Required
+IMPORTANT
+
+Se implementará soporte para sintaxis Markdown de imágenes ![texto](url) en todas las secciones de texto enriquecido (donde se usa LaTeX). Se añadirá un botón de "Cámara/Imagen" en el componente Section para facilitar la subida de imágenes locales (conversión automática a Base64).
+
+Proposed Changes
+[Core Components]
+[MODIFY] 
+App.tsx
+renderLatexToHtml: Actualizar la lógica para detectar y renderizar el tag de imagen Markdown ![...] (...).
+Section Component:
+Añadir un botón discreto de subida de imagen en el encabezado de la sección.
+Implementar lógica para insertar el código Markdown generado (![imagen](data:...)) en la posición actual del cursor del textarea.
+handleDownloadPDF: Asegurar que las imágenes renderizadas en el contenedor oculto sean capturadas correctamente por html2canvas.
+[Image Layout Support]
+[MODIFY] 
+App.tsx
+LaTeX Width Support: Update renderLatexToHtml to parse width parameters in \includegraphics[...].
+Support 0.x\linewidth (converted to percentage).
+Support fixed units like cm.
+Default to max-width: 100% if no width is specified.
+Centering: Added flex justify-center to the image wrapper to ensure images are centered even when width is less than 100%.
+Section Splitting: (Already implemented) Refactor addBoxedSec to split text into chunks.
+Intelligent Page Breaks: (Already implemented) Handle page breaks per chunk.
+Verification Plan
+Automated Tests
+Verificar via preview en el navegador que una imagen en Base64 se renderiza correctamente al pegarla como Markdown.
+Confirmar que el botón de subida inserta el código correctamente.
+Manual Verification
+Exportación PDF: Generar un reporte con una imagen muy alta en el Marco Conceptual y verificar que se escale correctamente para no cortarse en los bordes de la página.
+Sidebar Info-box Update
+Update the red "Physics Toolkit" box to provide educational context about data analysis.
+
+[MODIFY] 
+App.tsx
+Change title to "ANÁLISIS DE DATOS".
+Replace quote with text explaining the advantage of least squares, the current linear limitation, and the Desmos workaround for complex relations.
+Error Calculation & Reporting Refinement
+Implement rigorous experimental error reporting standards ("Rule of Gold") and improve transparency in propagation.
+
+[MODIFY] 
+calculations.ts
+Add roundToSignificantDigits(num, n) helper.
+Add applyRuleOfGold(uncertainty) which returns the rounded uncertainty and its decimal places.
+Add formatMeasure(value, uncertainty) to ensure decimal consistency.
+[MODIFY] 
+App.tsx
+Update calculateIndirectValues to include relError and pctError in its return objects.
+Cleanup Indirect Variable Display:
+Remove the columns for $\epsilon$ and $%$ for each indirect variable in FormStep.Data.
+Keep only the main result ($Z$) and its uncertainty ($\Delta Z$).
+Refine Error Propagation Display (renderErrorFormula):
+Fix Variable Detection: Remove the i (case-insensitive) flag from the RegExp when searching for variable symbols in the formula. This ensures distinguishability between symbols like $v$ (velocity) and $V$ (volume).
+Show Result Value: Update the LaTeX preview to include the final calculated value of the magnitude (e.g., $q = \text{Value}$).
+Update logic to detect dependencies across Indep, Dep, Extra, and previous Indirect Variables.
+Use the quadratic sum (root of squares) notation: $\Delta q = \sqrt{\sum (\frac{\partial q}{\partial x_i} \Delta x_i)^2}$.
+Implement a "Numerical Substitution" preview that uses a sample row (e.g., Row 1) to show real numbers in the LaTeX string.
+Update RegressionTable and EstimationPanel to use the new rounding standard for $M \pm \sigma_M$ and $B \pm \sigma_B$.
+[Reset Report Feature]
+[MODIFY] 
+App.tsx
+handleResetReport:
+Implement a function that shows a window confirmation: window.confirm("¿Estás seguro de que deseas borrar todo el informe? Esta acción no se puede deshacer.").
+If confirmed:
+Reset the report state to a fresh copy of INITIAL_REPORT.
+Set the current date in the new report object.
+Clear localStorage (or just set the new state which will trigger useEffect sync).
+UI Interaction:
+Add a "Reiniciar" (Reset) button in the top navigation area (near the logo or export/import buttons).
+Use a subtle but distinct style (e.g., secondary button with Trash2 or RefreshCw icon).
+[Regression Parameters Enhancement]
+[MODIFY] 
+App.tsx
+EstimationPanel Refinement:
+Proper LaTeX Labels: Ensure all labels (n, \sum x_i, \Delta, etc.) use correct KaTeX syntax.
+Substitution Display: Implement a "Desglose de Parámetros" section below the grid.
+Formulas to include:
+$M = \frac{n\sum xy - \sum x \sum y}{\Delta}$
+$B = \frac{\sum x^2 \sum y - \sum x \sum xy}{\Delta}$
+$\sigma_y = \sqrt{\frac{\sum (y_i - (Mx_i + b))^2}{n-2}}$
+$\sigma_M = \sigma_{y} \sqrt{\frac{n}{\Delta}}$
+$\sigma_B = \sigma_{y} \sqrt{\frac{\sum x_i^2}{\Delta}}$
+Dynamic Substitution: Generate strings that replace symbols with real values from the stats object, showing the calculation steps clearly.
+Verification Plan
+Manual Verification
+Functional: Fill out some data, click "Reiniciar", confirm, and verify the app returns to its initial state.
+Safety: Click "Reiniciar", cancel the confirmation, and verify data is preserved.
+Persistence: Verify that after a reset and reload, the app remains empty.
+Visual (Regression): Verify that regression parameters show elegant LaTeX formulas and numerical substitutions.

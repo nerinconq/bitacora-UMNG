@@ -1,0 +1,5 @@
+{
+  "name": "[OKrubrica]Generador de Informes de Física UMNG",
+  "description": "Una aplicación web diseñada para estudiantes de la Universidad Militar Nueva Granada para completar y generar informes de laboratorio de física en formato PDF y JSON.",
+  "requestFramePermissions": []
+}
