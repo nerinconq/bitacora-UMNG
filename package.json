@@ -15,11 +15,14 @@
     "jspdf": "^4.1.0",
     "katex": "^0.16.9",
     "lucide-react": "^0.563.0",
+    "prismjs": "^1.30.0",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "react-simple-code-editor": "^0.14.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
+    "@types/prismjs": "^1.26.6",
     "@vitejs/plugin-react": "^5.0.0",
     "gh-pages": "^6.3.0",
     "typescript": "~5.8.2",

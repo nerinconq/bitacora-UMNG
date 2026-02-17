@@ -5,6 +5,7 @@ export enum FormStep {
   Experimental = 'experimental',
   Data = 'data',
   Analysis = 'analysis',
+  Appendices = 'appendices',
   Rubric = 'rubric' // inferring this might be used or useful
 }
 
@@ -115,10 +116,12 @@ export interface LabReport {
   hypothesis: string;
   marcoConceptual: string;
   montajeText: string;
+  setupImageUrl?: string;
+  circuitDiagramUrl?: string;
+  cirkitProjectUrl?: string;
   materials: MaterialRow[];
   procedimiento: string;
   logoUrl: string;
-  setupImageUrl: string;
   graphImageUrl: string;
   desmosLink: string;
 
@@ -142,4 +145,17 @@ export interface LabReport {
   dataSeries: DataSeries[];
   activeSeriesIndex: number;
   images: Record<string, string>;
+  appendices?: AppendixData;
+}
+
+export interface AppendixData {
+  codeContent?: string;
+  selectedBoard?: string;
+  translatedCode?: string;
+  cirkitSchematicImage?: string;
+  cirkitProjectId?: string;
+  pinoutBoardImage?: string;
+  pinoutBoardName?: string;
+  selectedBoardId?: string;
+  pinoutConfiguration?: any; // JSON configuration data
 }

@@ -713,11 +713,11 @@ const App: React.FC = () => {
     }
   };
 
-  const sanitizeFilename = (name: string) => {
-    console.log("Sanitizing input:", name);
-    const sanitized = name.replace(/[^a-z0-9áéíóúñü \-_]/gi, '_').trim() || 'Desconocido';
-    console.log("Sanitized output:", sanitized);
-    return sanitized;
+  const sanitizeFilename = (name: any) => {
+    // Robust sanitization supporting Latin characters and spaces
+    const str = String(name || '').trim();
+    const sanitized = str.replace(/[^a-z0-9áéíóúñü \-_]/gi, '_').trim();
+    return sanitized || 'Proyecto';
   };
 
   const handleExportJSON = () => {
@@ -732,9 +732,9 @@ const App: React.FC = () => {
       const downloadAnchorNode = document.createElement('a');
       downloadAnchorNode.setAttribute("href", url);
 
-      const rawName = report.practiceNo || 'Backup';
-      const safeName = sanitizeFilename(rawName);
-      const fileName = `Informe_Fisica_UMNG_${safeName}.json`;
+      const safeName = sanitizeFilename(report.practiceNo || 'Lab');
+      const safeTitle = sanitizeFilename(report.title || '');
+      const fileName = `Informe_Fisica_UMNG_P${safeName}${safeTitle ? '_' + safeTitle : ''}.json`;
 
       console.log("Filename generated:", fileName); // DEBUG
       downloadAnchorNode.setAttribute("download", fileName);
@@ -1275,7 +1275,10 @@ const App: React.FC = () => {
       currentY = await addBoxedSec('CONCLUSIONES', report.conclusions, currentY);
       currentY = await addBoxedSec('BIBLIOGRAFÍA', report.bibliography, currentY);
 
-      doc.save(`Informe_Fisica_UMNG_${sanitizeFilename(report.practiceNo || 'Lab')}.pdf`);
+      const safeName = sanitizeFilename(report.practiceNo || 'Lab');
+      const safeTitle = sanitizeFilename(report.title || '');
+      const finalPdfName = `Informe_Fisica_UMNG_P${safeName}${safeTitle ? '_' + safeTitle : ''}.pdf`;
+      doc.save(finalPdfName);
     } catch (e) { console.error(e); alert("Error al generar PDF."); }
     setIsGenerating(false);
   };
@@ -2166,7 +2169,7 @@ const App: React.FC = () => {
             </div>
             <span className="ml-2 text-[9px] font-black text-white uppercase tracking-widest">{isTableRotated ? 'ROTAR TABLA' : 'TABLA NORMAL'}</span>
           </label>
-          <button onClick={handeDownloadPDFWrapper} disabled={isGenerating} className="bg-[#9e1b32] text-white px-8 py-3 rounded-2xl font-black shadow-2xl hover:bg-[#8b182d] hover:scale-105 active:scale-95 transition-all disabled:opacity-50 flex items-center uppercase tracking-[0.1em] text-[11px] border-b-4 border-black/20">
+          <button onClick={handleDownloadPDF} disabled={isGenerating} className="bg-[#9e1b32] text-white px-8 py-3 rounded-2xl font-black shadow-2xl hover:bg-[#8b182d] hover:scale-105 active:scale-95 transition-all disabled:opacity-50 flex items-center uppercase tracking-[0.1em] text-[11px] border-b-4 border-black/20">
             {isGenerating ? <Loader2 className="animate-spin mr-3" /> : <Download className="mr-3" />}
             {isGenerating ? "PROCESANDO..." : "EXPORTAR PDF"}
           </button>

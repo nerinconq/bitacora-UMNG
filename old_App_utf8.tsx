@@ -1,20 +1,14 @@
-
+﻿
 import React, { useState, useEffect, useRef } from 'react';
 import { jsPDF } from 'jspdf';
 import katex from 'katex';
 import html2canvas from 'html2canvas';
-import Prism from 'prismjs';
-import 'prismjs/components/prism-clike';
-import 'prismjs/components/prism-javascript';
-import 'prismjs/components/prism-python';
-import 'prismjs/components/prism-c';
-import 'prismjs/components/prism-cpp';
 import {
   FileText, Users, Settings, Table as TableIcon, BarChart, Download,
   Upload, X, Link as LinkIcon, RefreshCw, Save, FolderOpen, Plus, Trash2,
   Layers, Info, ArrowUp, ChevronLeft, ChevronRight, ImageIcon, ExternalLink, Loader2, Calculator,
   MinusCircle, PlusCircle, CheckCircle2, Star, Edit3, Save as SaveIcon, AlertCircle, TrendingUp, Settings2, BookOpen, HelpCircle, FlaskConical, Check,
-  Database, Copy, Code, AlignLeft, ListChecks, Paperclip
+  Database, Copy, Code
 } from 'lucide-react';
 import {
   LabReport, FormStep, MeasurementRow, MaterialRow, RegressionRow, RubricCriterion, Evaluation, RubricLevel,
@@ -23,9 +17,6 @@ import {
 import { calculateStats, parseNum, applyRuleOfGold, formatMeasure } from './utils/calculations';
 import { formatStudentName } from './utils/formatters';
 import { DesmosGraph } from './components/DesmosGraph';
-import { CodeEditor } from './components/CodeEditor';
-import { CirkitEmbed } from './components/CirkitEmbed';
-import { PinoutViewer } from './components/PinoutViewer';
 
 
 
@@ -35,39 +26,39 @@ const DEFAULT_RUBRIC: RubricCriterion[] = [
     id: 'crit-1',
     section: FormStep.General,
     category: 'APRENDIZAJE-INVESTIGATIVO',
-    title: 'TÍTULO, RESUMEN, BIBLIOGRAFÍA Y ORTOGRAFÍA',
+    title: 'T├ìTULO, RESUMEN, BIBLIOGRAF├ìA Y ORTOGRAF├ìA',
     weight: 30,
     levels: [
-      { label: 'EXCELENTE', points: 1.5, description: 'Título preciso, resumen relevante con metodología clara y bibliografía completa.' },
-      { label: 'MUY BUENO', points: 1.2, description: 'Título claro, resumen relevante pero metodología poco clara.' },
-      { label: 'BUENO', points: 1.05, description: 'Incluye título y resumen básico, faltan palabras clave relacionadas.' },
-      { label: 'PROMEDIO', points: 0.9, description: 'Falta título o resumen, carece de concisión y metodología.' },
+      { label: 'EXCELENTE', points: 1.5, description: 'T├¡tulo preciso, resumen relevante con metodolog├¡a clara y bibliograf├¡a completa.' },
+      { label: 'MUY BUENO', points: 1.2, description: 'T├¡tulo claro, resumen relevante pero metodolog├¡a poco clara.' },
+      { label: 'BUENO', points: 1.05, description: 'Incluye t├¡tulo y resumen b├ísico, faltan palabras clave relacionadas.' },
+      { label: 'PROMEDIO', points: 0.9, description: 'Falta t├¡tulo o resumen, carece de concisi├│n y metodolog├¡a.' },
       { label: 'INCUMPLE', points: 0.01, description: 'Ausencia de compromiso.' }
     ]
   },
   {
     id: 'crit-2',
     section: FormStep.TextContent,
-    category: 'APRENDIZAJE PRÁCTICO-PRESENCIAL',
-    title: 'INTRODUCCIÓN, OBJETIVOS Y MARCO CONCEPTUAL',
+    category: 'APRENDIZAJE PR├üCTICO-PRESENCIAL',
+    title: 'INTRODUCCI├ôN, OBJETIVOS Y MARCO CONCEPTUAL',
     weight: 15,
     levels: [
-      { label: 'EXCELENTE', points: 0.75, description: 'Hipótesis verificables, marco conceptual sólido y contrastación paso a paso.' },
-      { label: 'MUY BUENO', points: 0.6, description: 'Hipótesis claras, marco conceptual conciso pero sin propuesta de contrastación.' },
-      { label: 'BUENO', points: 0.53, description: 'Hipótesis verificables pero sin soporte teórico apropiado.' },
-      { label: 'PROMEDIO', points: 0.45, description: 'Hipótesis poco clara y marco conceptual demasiado breve.' },
-      { label: 'INCUMPLE', points: 0.01, description: 'Ausencia de compromiso o falta de relación técnica.' }
+      { label: 'EXCELENTE', points: 0.75, description: 'Hip├│tesis verificables, marco conceptual s├│lido y contrastaci├│n paso a paso.' },
+      { label: 'MUY BUENO', points: 0.6, description: 'Hip├│tesis claras, marco conceptual conciso pero sin propuesta de contrastaci├│n.' },
+      { label: 'BUENO', points: 0.53, description: 'Hip├│tesis verificables pero sin soporte te├│rico apropiado.' },
+      { label: 'PROMEDIO', points: 0.45, description: 'Hip├│tesis poco clara y marco conceptual demasiado breve.' },
+      { label: 'INCUMPLE', points: 0.01, description: 'Ausencia de compromiso o falta de relaci├│n t├®cnica.' }
     ]
   },
   {
     id: 'crit-3',
     section: FormStep.Experimental,
-    category: 'APRENDIZAJE PRÁCTICO-PRESENCIAL',
-    title: 'METODOLOGÍA (MATERIALES Y MONTAJE)',
+    category: 'APRENDIZAJE PR├üCTICO-PRESENCIAL',
+    title: 'METODOLOG├ìA (MATERIALES Y MONTAJE)',
     weight: 12.5,
     levels: [
       { label: 'EXCELENTE', points: 0.625, description: 'Procedimiento claro y materiales descritos adecuadamente.' },
-      { label: 'BUENO', points: 0.435, description: 'Procedimiento claro pero descripción de equipos insuficiente.' },
+      { label: 'BUENO', points: 0.435, description: 'Procedimiento claro pero descripci├│n de equipos insuficiente.' },
       { label: 'INCUMPLE', points: 0.01, description: 'No describe materiales ni equipos.' }
     ]
   },
@@ -75,7 +66,7 @@ const DEFAULT_RUBRIC: RubricCriterion[] = [
     id: 'crit-4',
     section: FormStep.Data,
     category: 'APRENDIZAJE DE MODELOS DE GOBERNANZA',
-    title: 'TOMA DE DATOS Y CONFORMACIÓN DE GRUPOS',
+    title: 'TOMA DE DATOS Y CONFORMACI├ôN DE GRUPOS',
     weight: 20,
     levels: [
       { label: 'CONCERTADO', points: 1.0, description: 'Datos reportados apropiadamente durante la jornada de laboratorio.' },
@@ -85,13 +76,13 @@ const DEFAULT_RUBRIC: RubricCriterion[] = [
   {
     id: 'crit-5',
     section: FormStep.Analysis,
-    category: 'APRENDIZAJE PERMANENTE-CRÍTICO',
-    title: 'DISCUSIÓN Y CONCLUSIONES',
+    category: 'APRENDIZAJE PERMANENTE-CR├ìTICO',
+    title: 'DISCUSI├ôN Y CONCLUSIONES',
     weight: 22.5,
     levels: [
-      { label: 'EXCELENTE', points: 1.125, description: 'Gráficas relevantes, análisis profundo e incertidumbres consideradas.' },
-      { label: 'MUY BUENO', points: 0.9, description: 'Gráficas adecuadas pero argumento débil frente a la hipótesis.' },
-      { label: 'INCUMPLE', points: 0.01, description: 'Ausencia de gráficas o conclusiones irrelevantes.' }
+      { label: 'EXCELENTE', points: 1.125, description: 'Gr├íficas relevantes, an├ílisis profundo e incertidumbres consideradas.' },
+      { label: 'MUY BUENO', points: 0.9, description: 'Gr├íficas adecuadas pero argumento d├®bil frente a la hip├│tesis.' },
+      { label: 'INCUMPLE', points: 0.01, description: 'Ausencia de gr├íficas o conclusiones irrelevantes.' }
     ]
   }
 ];
@@ -115,8 +106,8 @@ const INITIAL_REPORT: LabReport = {
   leader: '', int2: '', int3: '', int4: '', teacher: 'Nelson Rincon',
   abstract: '', introduction: '', objectiveGeneral: '', objectivesSpecific: '', hypothesis: '', marcoConceptual: '',
   montajeText: '', materials: [
-    { id: 'mat-1', item: 'Regla', qty: '1', category: 'LABORATORY', description: 'Medición longitud' },
-    { id: 'mat-2', item: 'Calibrador', qty: '1', category: 'LABORATORY', description: 'Alta precisión' }
+    { id: 'mat-1', item: 'Regla', qty: '1', category: 'LABORATORY', description: 'Medici├│n longitud' },
+    { id: 'mat-2', item: 'Calibrador', qty: '1', category: 'LABORATORY', description: 'Alta precisi├│n' }
   ],
   procedimiento: '', logoUrl: '', setupImageUrl: '', graphImageUrl: '', desmosLink: '',
 
@@ -138,11 +129,10 @@ const INITIAL_REPORT: LabReport = {
 
 const steps = [
   { id: FormStep.General, label: 'GENERAL', icon: <Users size={18} /> },
-  { id: FormStep.TextContent, label: 'TEORÍA', icon: <FileText size={18} /> },
+  { id: FormStep.TextContent, label: 'TEOR├ìA', icon: <FileText size={18} /> },
   { id: FormStep.Experimental, label: 'MONTAJE', icon: <Settings size={18} /> },
   { id: FormStep.Data, label: 'DATOS', icon: <TableIcon size={18} /> },
   { id: FormStep.Analysis, label: 'RESULTADOS', icon: <BarChart size={18} /> },
-  { id: FormStep.Appendices, label: 'APÉNDICES', icon: <Paperclip size={18} /> },
 ];
 
 const calculateRowAvgs = (row: MeasurementRow, series: DataSeries) => {
@@ -336,7 +326,7 @@ const ExtraVarPanel = ({ series, onUpdate }: { series: DataSeries, onUpdate: (va
     <div className="bg-white p-8 rounded-[3rem] shadow-xl border-2 border-slate-50 mb-10">
       <div className="flex items-center space-x-3 mb-6">
         <div className="p-2 bg-emerald-100/50 rounded-xl text-emerald-600"><Settings size={20} /></div>
-        <h4 className="font-black text-emerald-900 uppercase tracking-widest text-xs">Variables Adicionales de Medida (Parámetros)</h4>
+        <h4 className="font-black text-emerald-900 uppercase tracking-widest text-xs">Variables Adicionales de Medida (Par├ímetros)</h4>
       </div>
 
       <div className="grid grid-cols-12 gap-4 bg-slate-50 p-6 rounded-[2rem] border-2 border-slate-100 items-end">
@@ -344,7 +334,7 @@ const ExtraVarPanel = ({ series, onUpdate }: { series: DataSeries, onUpdate: (va
           <InputMini label="Nombre (ej. Masa)" value={newVar.name} onChange={v => setNewVar({ ...newVar, name: v })} />
         </div>
         <div className="col-span-2">
-          <InputMini label="Símbolo (ej. \rho)" value={newVar.symbol} onChange={v => setNewVar({ ...newVar, symbol: v })} />
+          <InputMini label="S├¡mbolo (ej. \rho)" value={newVar.symbol} onChange={v => setNewVar({ ...newVar, symbol: v })} />
           <span className="text-[9px] text-slate-400 block mt-1">Usa LaTeX: \rho, \theta, \Delta</span>
         </div>
         <div className="col-span-2">
@@ -364,7 +354,7 @@ const ExtraVarPanel = ({ series, onUpdate }: { series: DataSeries, onUpdate: (va
             {editingId ? <Edit3 size={16} className="mr-2" /> : <Plus size={16} className="mr-2" />}
             {editingId ? 'ACTUALIZAR' : 'AGREGAR'}
           </button>
-          {editingId && <button onClick={() => { setEditingId(null); setNewVar({ name: '', symbol: '', unit: '', uncertainty: 0, multiplier: 1, numRepetitions: 1 }); }} className="w-full mt-2 text-[9px] font-black uppercase text-slate-400 hover:text-slate-600">Cancelar Edición</button>}
+          {editingId && <button onClick={() => { setEditingId(null); setNewVar({ name: '', symbol: '', unit: '', uncertainty: 0, multiplier: 1, numRepetitions: 1 }); }} className="w-full mt-2 text-[9px] font-black uppercase text-slate-400 hover:text-slate-600">Cancelar Edici├│n</button>}
         </div>
       </div>
 
@@ -374,7 +364,7 @@ const ExtraVarPanel = ({ series, onUpdate }: { series: DataSeries, onUpdate: (va
             <div key={ev.id} className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
               <div className="flex items-center space-x-4">
                 <span className="font-mono font-black text-emerald-800 bg-emerald-50 px-2 py-1 rounded text-xs">{ev.symbol}</span>
-                <span className="text-[11px] font-bold text-slate-600 uppercase">{ev.name} <span className="text-slate-300 mx-2">|</span> <span className="normal-case text-slate-400">Unidad: {ev.unit}</span> <span className="text-slate-300 mx-2">|</span> <span className="normal-case text-slate-400">x{ev.multiplier}</span> <span className="text-slate-300 mx-2">|</span> <span className="normal-case text-slate-400">Δ: {ev.uncertainty}</span></span>
+                <span className="text-[11px] font-bold text-slate-600 uppercase">{ev.name} <span className="text-slate-300 mx-2">|</span> <span className="normal-case text-slate-400">Unidad: {ev.unit}</span> <span className="text-slate-300 mx-2">|</span> <span className="normal-case text-slate-400">x{ev.multiplier}</span> <span className="text-slate-300 mx-2">|</span> <span className="normal-case text-slate-400">╬ö: {ev.uncertainty}</span></span>
               </div>
               <div className="flex items-center space-x-2">
                 <button onClick={() => handleEdit(ev)} className="text-blue-200 hover:text-blue-500 transition-colors bg-blue-50 p-1.5 rounded-lg"><Settings size={14} /></button>
@@ -498,7 +488,7 @@ const IndirectVarPanel: React.FC<{ series: DataSeries; onUpdate: (vars: Indirect
   return (
     <div className="bg-white p-10 rounded-[3rem] shadow-lg border-2 border-purple-50">
       <h3 className="text-[10px] font-black text-purple-600 uppercase tracking-widest flex items-center mb-6">
-        <Calculator className="mr-2" size={16} /> Magnitudes Indirectas & Propagación de Errores
+        <Calculator className="mr-2" size={16} /> Magnitudes Indirectas & Propagaci├│n de Errores
       </h3>
 
       <div className="flex gap-4 mb-6 flex-wrap">
@@ -520,7 +510,7 @@ const IndirectVarPanel: React.FC<{ series: DataSeries; onUpdate: (vars: Indirect
           <input className="w-full p-3 rounded-xl border-none shadow-sm focus:ring-2 focus:ring-purple-200 text-sm" placeholder="Ej: Velocidad" value={newVar.name} onChange={e => setNewVar({ ...newVar, name: e.target.value })} />
         </div>
         <div className="md:col-span-2 space-y-1">
-          <label className="text-[9px] font-bold text-slate-400 uppercase ml-2">Símbolo</label>
+          <label className="text-[9px] font-bold text-slate-400 uppercase ml-2">S├¡mbolo</label>
           <input className="w-full p-3 rounded-xl border-none shadow-sm focus:ring-2 focus:ring-purple-200 text-sm font-bold text-purple-700" placeholder="v" value={newVar.symbol} onChange={e => setNewVar({ ...newVar, symbol: e.target.value })} />
         </div>
         <div className="md:col-span-2 space-y-1">
@@ -528,7 +518,7 @@ const IndirectVarPanel: React.FC<{ series: DataSeries; onUpdate: (vars: Indirect
           <input className="w-full p-3 rounded-xl border-none shadow-sm focus:ring-2 focus:ring-purple-200 text-sm" placeholder="m/s" value={newVar.unit} onChange={e => setNewVar({ ...newVar, unit: e.target.value })} />
         </div>
         <div className="md:col-span-4 space-y-1">
-          <label className="text-[9px] font-bold text-slate-400 uppercase ml-2">Fórmula (use {series.varIndep.symbol || 't'}, {series.varDep.symbol || 'x'})</label>
+          <label className="text-[9px] font-bold text-slate-400 uppercase ml-2">F├│rmula (use {series.varIndep.symbol || 't'}, {series.varDep.symbol || 'x'})</label>
           <input className="w-full p-3 rounded-xl border-none shadow-sm focus:ring-2 focus:ring-purple-200 text-sm font-mono tracking-wide" placeholder="x / t" value={newVar.formula} onChange={e => setNewVar({ ...newVar, formula: e.target.value })} />
           {newVar.formula && (
             <div className="flex flex-col gap-1 mt-1 px-2">
@@ -547,421 +537,16 @@ const IndirectVarPanel: React.FC<{ series: DataSeries; onUpdate: (vars: Indirect
         </div>
       </div>
       <p className="text-[9px] text-slate-400 mt-4 ml-2 font-medium">
-        * Use los símbolos definidos de las variables inde/dep y variables extra. Funciones soportadas: sqrt, sin, cos, tan, log, ln, ^.
-        La incertidumbre se calculará automáticamente usando derivadas numéricas de acuerdo a la ecuación mostrada.
+        * Use los s├¡mbolos definidos de las variables inde/dep y variables extra. Funciones soportadas: sqrt, sin, cos, tan, log, ln, ^.
+        La incertidumbre se calcular├í autom├íticamente usando derivadas num├®ricas de acuerdo a la ecuaci├│n mostrada.
       </p>
     </div>
   );
 };
 
-const VarConfig = ({ title, config, onChange, reps, onRepsChange }: any) => (
-  <div className="space-y-6">
-    <h4 className="text-[10px] font-black text-[#004b87] uppercase tracking-[0.2em] border-b-2 border-[#9e1b32] pb-3 flex items-center"><Layers size={18} className="mr-3 text-[#9e1b32]" /> {title}</h4>
-    <div className="grid grid-cols-6 gap-5">
-      <div className="col-span-2">
-        <InputMini label="Nombre de Variable" value={config.name} onChange={v => onChange({ ...config, name: v })} />
-      </div>
-      <div className="col-span-1">
-        <InputMini label="Símbolo" value={config.symbol || (title.includes('Independiente') ? 'x' : 'y')} onChange={v => onChange({ ...config, symbol: v })} />
-      </div>
-      <div className="col-span-1">
-        <InputMini label="Unidad" value={config.unit} onChange={v => onChange({ ...config, unit: v })} />
-      </div>
-      <div className="col-span-1">
-        <SmartNumberInput label="Factor" value={config.multiplier} onChange={(v: number) => onChange({ ...config, multiplier: v || 1 })} />
-      </div>
-      <div className="col-span-1">
-        <SmartNumberInput label="Incertidumbre Δ" value={config.uncertainty} onChange={(v: number) => onChange({ ...config, uncertainty: v || 0 })} />
-      </div>
-    </div>
-    <div className="flex items-center space-x-4 bg-slate-50 p-4 rounded-3xl border border-slate-100 shadow-inner">
-      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Repeticiones:</span>
-      <div className="flex items-center space-x-3">
-        <button onClick={() => onRepsChange(Math.max(1, reps - 1))} className="text-slate-300 hover:text-red-500 transition-colors"><MinusCircle size={18} /></button>
-        <input type="number" min="1" max="10" className="w-16 p-2 rounded-xl border-2 border-slate-100 text-center font-black text-[#004b87] focus:ring-4 focus:ring-blue-100 outline-none transition-all" value={reps} onChange={e => onRepsChange(parseInt(e.target.value) || 1)} />
-        <button onClick={() => onRepsChange(Math.min(10, reps + 1))} className="text-slate-300 hover:text-green-500 transition-colors"><PlusCircle size={18} /></button>
-      </div>
-    </div>
-  </div>
-);
-
-const EstimationPanel = ({ series }: { series: DataSeries }) => {
-  const regressionData = getRegressionData(series);
-  const stats = calculateStats(regressionData);
-  if (!stats) return null;
-
-  const fmtM = formatMeasure(stats.m, stats.sigmaM);
-  const fmtB = formatMeasure(stats.b, stats.sigmaB);
-
-  const toLatexSci = (num: number) => {
-    if (Math.abs(num) < 0.01 || Math.abs(num) >= 10000) {
-      const exp = num.toExponential(4);
-      const [m, e] = exp.split('e');
-      return `${m} \\times 10^{${parseInt(e)}}`;
-    }
-    return num.toFixed(4);
-  };
-
-  const FormulaItem = ({ formula, value, displayStyle = "small" }: { formula: string, value: string | number, displayStyle?: "small" | "medium" | "large" }) => (
-    <div className="flex items-center space-x-4">
-      <div className={`overflow-x-auto ${displayStyle === 'large' ? 'min-w-[150px]' : displayStyle === 'medium' ? 'min-w-[120px]' : 'min-w-[80px]'}`}>
-        <div className="text-blue-900/90 font-medium whitespace-nowrap" dangerouslySetInnerHTML={{ __html: renderMathOnly(`$${formula}$`) }} />
-      </div>
-      <div className="bg-white border-2 border-slate-200 px-4 py-2.5 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] text-[#004b87] font-mono font-black text-[12px] min-w-[140px] text-center">
-        {value}
-      </div>
-    </div>
-  );
-
-  const SubstitutionCard = ({ title, formula, sub, result }: { title: string, formula: string, sub: string, result: string }) => (
-    <div className="bg-white p-6 rounded-[2.5rem] border-2 border-slate-100 shadow-sm space-y-3 group hover:border-[#004b87]/20 transition-all">
-      <div className="flex justify-between items-center border-b border-slate-50 pb-2">
-        <span className="text-[9px] font-black text-[#004b87] uppercase tracking-widest">{title}</span>
-        <span className="text-[10px] font-mono font-black text-[#9e1b32]">{result}</span>
-      </div>
-      <div className="space-y-2">
-        <div className="text-xs text-slate-400 font-medium" dangerouslySetInnerHTML={{ __html: renderMathOnly(`$${formula}$`) }} />
-        <div className="text-[10px] text-[#004b87] font-mono whitespace-normal leading-relaxed opacity-0 group-hover:opacity-100 transition-opacity" dangerouslySetInnerHTML={{ __html: renderMathOnly(`$\\approx ${sub}$`) }} />
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="bg-white rounded-[3rem] shadow-2xl border-4 border-[#004b87] overflow-hidden mb-16 relative">
-      <div className="bg-[#004b87] px-12 py-5 flex justify-between items-center border-b-4 border-[#9e1b32]">
-        <h3 className="text-white font-black uppercase text-[11px] tracking-[0.3em] flex items-center">
-          <Calculator size={20} className="mr-4 text-blue-300" /> AJUSTE DE CURVA (MÍNIMOS CUADRADOS)
-        </h3>
-        <div className="bg-[#9e1b32] text-white text-[10px] px-5 py-2 rounded-full font-black shadow-xl tracking-widest border-b-2 border-black/20">N = {stats.n}</div>
-      </div>
-
-      <div className="p-16 grid-bg bg-white relative">
-        <div className="grid grid-cols-12 gap-y-10 items-start">
-          <div className="col-span-4 space-y-6">
-            <FormulaItem formula="n =" value={stats.n} />
-            <FormulaItem formula={"\\sum_{i=1}^n x_i ="} value={stats.sumX.toExponential(4)} />
-            <FormulaItem formula={"\\sum_{i=1}^n y_i ="} value={stats.sumY.toExponential(4)} />
-            <FormulaItem formula={"\\sum_{i=1}^n x_i^2 ="} value={stats.sumX2.toExponential(4)} />
-            <FormulaItem formula={"\\sum_{i=1}^n x_iy_i ="} value={stats.sumXY.toExponential(4)} />
-            <FormulaItem formula={"\\Delta = n \\sum x_i^2 - (\\sum x_i)^2 ="} value={stats.delta.toExponential(4)} displayStyle="large" />
-          </div>
-
-          <div className="col-span-8 space-y-8 pl-10 border-l-4 border-slate-100">
-            <div className="grid grid-cols-2 gap-x-12 gap-y-6">
-              <FormulaItem formula="M =" value={fmtM.val} displayStyle="medium" />
-              <FormulaItem formula={"\\sigma_M ="} value={fmtM.unc} displayStyle="medium" />
-              <FormulaItem formula="B =" value={fmtB.val} displayStyle="medium" />
-              <FormulaItem formula={"\\sigma_B ="} value={fmtB.unc} displayStyle="medium" />
-              <FormulaItem formula={"\\sigma_y ="} value={stats.sigmaY.toExponential(4)} displayStyle="medium" />
-              <FormulaItem formula="r^2 =" value={stats.r2.toFixed(6)} displayStyle="medium" />
-            </div>
-
-            <div className="mt-10 pt-10 border-t-2 border-slate-100 text-center">
-              <div className="inline-block px-10 py-2 bg-slate-100 rounded-full text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] mb-6 border-2 border-slate-200">Modelo Matemático Resultante</div>
-              <div className="bg-blue-50/50 p-8 rounded-[3.5rem] border-4 border-blue-100/50 font-mono text-[#004b87] font-black text-3xl shadow-2xl backdrop-blur-md inline-block min-w-[500px]">
-                <div dangerouslySetInnerHTML={{ __html: renderMathOnly(`$y = (${fmtM.val} \\pm ${fmtM.unc})x + (${fmtB.val} \\pm ${fmtB.unc})$`) }} />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-16 pt-12 border-t-4 border-slate-50">
-          <div className="flex items-center space-x-4 mb-8">
-            <div className="h-px bg-slate-200 flex-1"></div>
-            <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em]">Desglose de Parámetros</span>
-            <div className="h-px bg-slate-200 flex-1"></div>
-          </div>
-          <div className="grid grid-cols-2 gap-6">
-            <SubstitutionCard
-              title="Pendiente (M)"
-              formula="M = \frac{n \sum xy - \sum x \sum y}{\Delta}"
-              sub={`\frac{${stats.n}(${toLatexSci(stats.sumXY)}) - (${toLatexSci(stats.sumX)})(${toLatexSci(stats.sumY)})}{${toLatexSci(stats.delta)}}`}
-              result={fmtM.val}
-            />
-            <SubstitutionCard
-              title="Intercepto (B)"
-              formula="B = \frac{\sum x^2 \sum y - \sum x \sum xy}{\Delta}"
-              sub={`\frac{(${toLatexSci(stats.sumX2)})(${toLatexSci(stats.sumY)}) - (${toLatexSci(stats.sumX)})(${toLatexSci(stats.sumXY)})}{${toLatexSci(stats.delta)}}`}
-              result={fmtB.val}
-            />
-            <SubstitutionCard
-              title="Error Pendiente (\sigma_M)"
-              formula="\sigma_M = \sigma_y \sqrt{\frac{n}{\Delta}}"
-              sub={` ${toLatexSci(stats.sigmaY)} \sqrt{\frac{${stats.n}}{${toLatexSci(stats.delta)}}}`}
-              result={fmtM.unc}
-            />
-            <SubstitutionCard
-              title="Error Intercepto (\sigma_B)"
-              formula="\sigma_B = \sigma_y \sqrt{\frac{\sum x^2}{\Delta}}"
-              sub={` ${toLatexSci(stats.sigmaY)} \sqrt{\frac{${toLatexSci(stats.sumX2)}}{${toLatexSci(stats.delta)}}}`}
-              result={fmtB.unc}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const SmartNumberInput = ({ value, onChange, ...props }: any) => {
-  const [str, setStr] = useState(value?.toString() || '');
-  useEffect(() => {
-    const currentParsed = parseNum(str);
-    if (typeof value === 'number' && !isNaN(value) && Math.abs(value - currentParsed) > 1e-9) {
-      setStr(value.toString());
-    }
-  }, [value]);
-  const handleChange = (val: string) => {
-    setStr(val);
-    const num = parseNum(val);
-    if (!isNaN(num)) { onChange(num); }
-  };
-  return <InputMini {...props} value={str} onChange={handleChange} />;
-};
-
-const InputMini = ({ label, value, onChange, type = "text", ...props }: any) => (
-  <div className="space-y-1">
-    <label className="text-[9px] font-black text-slate-400 uppercase ml-3 tracking-[0.1em]">{label}</label>
-    <input type={type} step="any" className="w-full p-4 rounded-[1.5rem] border-2 border-slate-50 shadow-inner bg-slate-50/50 text-xs font-black outline-none focus:bg-white focus:ring-4 focus:ring-blue-100 transition-all text-[#004b87]" value={value} onChange={e => onChange(e.target.value)} {...props} />
-  </div>
-);
-
-const Input = ({ label, value, onChange, type = "text" }: any) => (
-  <div className="space-y-2">
-    <label className="text-[10px] font-black text-slate-400 uppercase ml-4 tracking-[0.2em]">{label}</label>
-    <input type={type} className="w-full p-5 rounded-[2.5rem] border-4 border-slate-50 shadow-lg bg-slate-50/50 text-sm font-black outline-none transition-all focus:bg-white focus:ring-8 focus:ring-blue-500/5 text-[#004b87]" value={value} onChange={e => onChange(e.target.value)} />
-  </div>
-);
-
-const StepHeader = ({ title, icon, criterion, isDocente, onEdit, onEvaluate, isEvaluated }: any) => (
-  <div className="flex items-center justify-between mb-8 border-b-4 border-[#004b87]/10 pb-4">
-    <div className="flex items-center gap-4">
-      <div className="p-3 bg-[#004b87] text-white rounded-2xl shadow-lg">{icon}</div>
-      <h2 className="text-2xl font-black text-[#004b87] uppercase tracking-tighter">{title}</h2>
-    </div>
-    {isDocente && criterion && (
-      <div className="flex gap-2">
-        <button
-          onClick={(e) => { e.stopPropagation(); onEdit(criterion); }}
-          className="p-2 rounded-xl bg-blue-50 text-[#004b87] hover:bg-[#004b87] hover:text-white transition-all shadow-sm group"
-          title="Editar definición"
-        >
-          <Settings size={18} className="group-hover:rotate-90 transition-transform" />
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); onEvaluate(criterion); }}
-          className={`p-2 rounded-xl transition-all shadow-md flex items-center gap-2 px-4 ${isEvaluated ? 'bg-emerald-500 text-white' : 'bg-white text-slate-300 hover:text-[#004b87] ring-2 ring-slate-100 hover:ring-[#004b87]/20'}`}
-          title="Evaluar"
-        >
-          <Star size={18} fill={isEvaluated ? "currentColor" : "none"} />
-          <span className="text-[10px] font-black uppercase tracking-widest">{isEvaluated ? 'Evaluado' : 'Evaluar'}</span>
-        </button>
-      </div>
-    )}
-  </div>
-);
-
-const Section = ({ title, value, onChange, rows = 4, help, report, updateReport }: any) => {
-  const previewRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (previewRef.current) previewRef.current.innerHTML = renderLatexToHtml(value, report?.images) || '<span class="text-slate-100 italic font-black uppercase tracking-[0.3em] text-[10px]">Esperando entrada...</span>';
-  }, [value, report?.images]);
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && textareaRef.current) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const base64 = ev.target?.result as string;
-        const imgId = `fig-${Date.now()}`;
-
-        // Ask for metadata
-        const caption = prompt("Ingrese el pie de foto (Caption):") || "";
-        const label = prompt("Ingrese la etiqueta (Label), ej: fig:montaje:") || imgId;
-
-        // Update images dictionary at App level
-        updateReport({ images: { ...(report?.images || INITIAL_REPORT.images), [imgId]: base64 } });
-
-        const latexBlock = `\n\\begin{figure}[h!t]\n  \\includegraphics[width=0.8\\linewidth]{${imgId}}\n  \\caption{${caption}}\n  \\label{${label}}\n\\end{figure}\n`;
-
-        const start = textareaRef.current!.selectionStart;
-        const end = textareaRef.current!.selectionEnd;
-        const newValue = value.substring(0, start) + latexBlock + value.substring(end);
-        onChange(newValue);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  return (
-    <div className="space-y-8 flex-1">
-      <div className="flex justify-between items-center border-b-2 border-[#9e1b32] pb-3 ml-2">
-        <div className="flex items-center space-x-4">
-          <label className="text-[11px] font-black text-[#004b87] uppercase tracking-[0.25em]">{title}</label>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="p-2 bg-blue-50 text-[#004b87] hover:bg-[#004b87] hover:text-white rounded-xl transition-all shadow-sm group border border-blue-100"
-            title="Subir imagen"
-          >
-            <ImageIcon size={14} className="group-hover:scale-110 transition-transform" />
-          </button>
-          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
-        </div>
-        {help && <span className="text-[10px] text-emerald-600 font-black bg-emerald-50 px-5 py-2 rounded-full uppercase tracking-tighter shadow-sm border border-emerald-100">{help}</span>}
-      </div>
-      <div className="grid grid-cols-2 gap-12">
-        <textarea
-          ref={textareaRef}
-          className="w-full p-12 border-none rounded-[4rem] bg-slate-50 shadow-inner font-mono text-xs focus:bg-white outline-none ring-8 ring-slate-100/30 transition-all text-slate-700 leading-relaxed"
-          rows={rows}
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          placeholder="Escriba aquí..."
-        />
-        <div ref={previewRef} className="p-16 border-4 border-[#004b87]/5 rounded-[4rem] bg-white text-[14px] leading-[1.8] latex-content overflow-auto min-h-[200px] grid-bg shadow-xl relative custom-scrollbar" />
-      </div>
-    </div>
-  );
-};
-
-const renderLatexToHtml = (text: string, images: Record<string, string> = {}) => {
-  if (!text) return '';
-  let p = text.replace(/\\\\/g, '<br />');
-
-  // Figure environment: \begin{figure} ... \includegraphics{...} \caption{...} \label{...} \end\{figure\}
-  p = p.replace(/\\begin\s*(?:\[.*?\])?\s*\{figure\}\s*(?:\[.*?\])?([\s\S]*?)\\end\{figure\}/g, (_, content) => {
-    const captionMatch = content.match(/\\caption\s*\{([\s\S]*?)\}/);
-    const labelMatch = content.match(/\\label\s*\{([\s\S]*?)\}/);
-    const imgMatch = content.match(/\\includegraphics\s*(?:\[(.*?)\])?\s*\{([\s\S]*?)\}/);
-
-    const caption = captionMatch ? captionMatch[1] : '';
-    const label = labelMatch ? labelMatch[1] : '';
-    const options = imgMatch ? (imgMatch[1] || '') : '';
-    const imgSrc = imgMatch ? (imgMatch[2] || '') : '';
-    const finalSrc = images[imgSrc] || imgSrc;
-
-    let imgStyle = "max-width: 100%; max-height: 9cm; object-fit: contain; border-radius: 1rem;";
-    if (options) {
-      const widthMatch = options.match(/width\s*=\s*([\d.]+)\s*(\\linewidth|\\textwidth|cm|mm|px|%|in|pt)?/);
-      if (widthMatch) {
-        const val = widthMatch[1];
-        const unit = widthMatch[2] || '';
-        if (unit === '\\linewidth' || unit === '\\textwidth') {
-          imgStyle = `width: ${parseFloat(val) * 100}%; max-height: 9cm; object-fit: contain; border-radius: 1rem;`;
-        } else if (unit) {
-          imgStyle = `width: ${val + unit}; max-height: 9cm; object-fit: contain; border-radius: 1rem;`;
-        } else if (val.includes('%') || val.includes('px')) {
-          imgStyle = `width: ${val}; max-height: 9cm; object-fit: contain; border-radius: 1rem;`;
-        }
-      }
-    }
-
-    return `
-    <div class="my-10 flex flex-col items-center">
-      <div class="bg-white p-4 rounded-[2rem] shadow-xl border-2 border-slate-50 relative overflow-hidden flex justify-center">
-        <img src="${finalSrc}" alt="${caption}" style="${imgStyle}" />
-      </div>
-      ${caption ? `<p class="mt-4 text-[11px] font-bold text-slate-500 text-center px-10 leading-relaxed uppercase tracking-widest"><span class="text-[#004b87] font-black">${label ? `Figura (${label}):` : 'Figura:'}</span> ${caption}</p>` : ''}
-    </div>
-    `;
-  });
-
-  p = p.replace(/\\begin\{enumerate\}([\s\S]*?)\\end\{enumerate\}/g, (_, c) => `<ol>${c.split('\\item').filter((i: any) => i.trim()).map((i: any) => `<li>${renderMathOnly(i.trim())}</li>`).join('')}</ol>`);
-  p = p.replace(/\\begin\{itemize\}([\s\S]*?)\\end\{itemize\}/g, (_, c) => `<ul>${c.split('\\item').filter((i: any) => i.trim()).map((i: any) => `<li>${renderMathOnly(i.trim())}</li>`).join('')}</ul>`);
-
-  // Image Markdown support (backwards compat)
-  p = p.replace(/!\[(.*?)\]\((.*?)\)/g, (_, alt, src) => {
-    const finalSrc = images[src] || src;
-    return `<div class="my-6 flex justify-center"><img src="${finalSrc}" alt="${alt}" style="max-width: 100%; max-height: 9cm; object-fit: contain; border-radius: 1rem; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);" /></div>`;
-  });
-
-  return renderMathOnly(p);
-};
-
-const renderMathOnly = (text: string) => text.replace(/\$([^$]+)\$/g, (_, f) => {
-  try {
-    return katex.renderToString(f, {
-      throwOnError: false,
-      displayMode: false,
-      strict: false,
-      trust: true
-    });
-  } catch (e) {
-    return f;
-  }
-});
-
-const RegressionTable = ({ series }: { series: DataSeries }) => {
-  const regressionData = getRegressionData(series);
-  const stats = calculateStats(regressionData);
-  if (!stats) return null;
-
-  const fmtM = formatMeasure(stats.m, stats.sigmaM);
-  const fmtB = formatMeasure(stats.b, stats.sigmaB);
-
-  return (
-    <div className="space-y-10">
-      <div className="flex items-center space-x-3 border-b-2 border-[#9e1b32] pb-3 ml-2">
-        <label className="text-[11px] font-black text-[#004b87] uppercase tracking-[0.25em]">DATOS PARA ANÁLISIS DE REGRESIÓN</label>
-      </div>
-      <div className="overflow-hidden rounded-[4rem] border-4 border-[#004b87]/5 shadow-2xl bg-white p-2">
-        <table className="w-full text-[11px] border-collapse">
-          <thead className="bg-[#004b87] text-white font-black uppercase tracking-widest">
-            <tr>
-              <th className="p-6 border-r border-white/10">#</th>
-              <th className="p-6 border-r border-white/10" dangerouslySetInnerHTML={{ __html: renderLatexToHtml(`X (${series.varIndep.unit})`) }} />
-              <th className="p-6 border-r border-white/10" dangerouslySetInnerHTML={{ __html: renderLatexToHtml(`Y (${series.varDep.unit})`) }} />
-              <th className="p-6 border-r border-white/10">XY</th>
-              <th className="p-6">X²</th>
-            </tr>
-          </thead>
-          <tbody>
-            {regressionData.map((row, i) => {
-              const formatSci = (num: number) => {
-                const str = num.toExponential(4);
-                const [base, exp] = str.split('e');
-                const cleanExp = exp ? parseInt(exp, 10) : 0;
-                return `${base} \\cdot 10^{${cleanExp}}`;
-              };
-              return (
-                <tr key={i} className="text-center font-black text-[#004b87] even:bg-slate-50/50 border-b last:border-0 hover:bg-blue-50 transition-colors">
-                  <td className="p-5 border-r border-slate-100 text-slate-400 font-bold">{row.n}</td>
-                  <td className="p-5 border-r border-slate-100" dangerouslySetInnerHTML={{ __html: renderMathOnly(`$${formatSci(row.x)}$`) }} />
-                  <td className="p-5 border-r border-slate-100" dangerouslySetInnerHTML={{ __html: renderMathOnly(`$${formatSci(row.y)}$`) }} />
-                  <td className="p-5 border-r border-slate-100" dangerouslySetInnerHTML={{ __html: renderMathOnly(`$${formatSci(row.xy)}$`) }} />
-                  <td className="p-5" dangerouslySetInnerHTML={{ __html: renderMathOnly(`$${formatSci(row.x2)}$`) }} />
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      {stats && (
-        <div className="grid grid-cols-2 gap-8 pt-4">
-          <StatBox label={`PENDIENTE AJUSTADA (M)`} value={fmtM.val} sub={`Incertidumbre: ±${fmtM.unc}`} color="text-[#9e1b32]" icon={<BarChart size={24} />} />
-          <StatBox label="BONDAD DE AJUSTE (R²)" value={stats.r2.toFixed(6)} sub="Coeficiente de determinación" color="text-[#004b87]" icon={<LinkIcon size={24} />} />
-        </div>
-      )}
-    </div>
-  );
-};
-
-const StatBox = ({ label, value, sub, color, icon }: any) => (
-  <div className="p-10 bg-white border-4 border-slate-50 rounded-[3.5rem] shadow-xl relative group overflow-hidden">
-    <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:rotate-12 transition-transform">{icon}</div>
-    <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 border-b border-slate-50 pb-2 ml-1">{label}</div>
-    <div className={`text-4xl font-mono font-black tracking-tighter ${color || 'text-slate-900'}`}>{value}</div>
-    {sub && <div className="text-[10px] font-black text-slate-300 mt-4 uppercase tracking-widest bg-slate-50/50 inline-block px-4 py-1.5 rounded-full">{sub}</div>}
-  </div>
-);
-
 const App: React.FC = () => {
 
 
-  const [activeTab, setActiveTab] = useState<'fisico' | 'esquematico' | 'codigo' | 'pines'>('fisico');
   const [report, setReport] = useState<LabReport>(() => {
     const saved = localStorage.getItem('physics_report_umng_v14.0');
     if (saved) {
@@ -1130,15 +715,15 @@ const App: React.FC = () => {
 
   const sanitizeFilename = (name: string) => {
     console.log("Sanitizing input:", name);
-    const sanitized = name.replace(/[^a-z0-9áéíóúñü \-_]/gi, '_').trim() || 'Desconocido';
+    const sanitized = name.replace(/[^a-z0-9├í├®├¡├│├║├▒├╝ \-_]/gi, '_').trim() || 'Desconocido';
     console.log("Sanitized output:", sanitized);
     return sanitized;
   };
 
   const handleExportJSON = () => {
     try {
-      console.log("Iniciando exportación JSON...");
-      if (!report) throw new Error("El reporte está vacío");
+      console.log("Iniciando exportaci├│n JSON...");
+      if (!report) throw new Error("El reporte est├í vac├¡o");
 
       const dataStr = JSON.stringify(report, null, 2);
       const blob = new Blob([dataStr], { type: "application/json" });
@@ -1161,7 +746,7 @@ const App: React.FC = () => {
       setTimeout(() => {
         document.body.removeChild(downloadAnchorNode);
         URL.revokeObjectURL(url);
-        console.log("Exportación finalizada. Anchor removido.");
+        console.log("Exportaci├│n finalizada. Anchor removido.");
       }, 500);
 
     } catch (err) {
@@ -1195,7 +780,7 @@ const App: React.FC = () => {
   };
 
   const handleResetReport = () => {
-    const confirmReset = window.confirm("¿Estás seguro de que deseas borrar todo el informe? Esta acción no se puede deshacer.");
+    const confirmReset = window.confirm("┬┐Est├ís seguro de que deseas borrar todo el informe? Esta acci├│n no se puede deshacer.");
     if (confirmReset) {
       setReport({
         ...INITIAL_REPORT,
@@ -1396,31 +981,14 @@ const App: React.FC = () => {
     const pageBottomLimit = pageHeight - 15;
 
     try {
-      const addSafeImage = async (data: string | undefined, x: number, y: number, w: number, h: number): Promise<boolean> => {
-        if (!data) return false;
+      const addSafeImage = async (data: string | undefined, x: number, y: number, w: number, h: number) => {
+        if (!data) return;
         try {
           let finalData = data;
-          if (!data.startsWith('data:')) {
-            try {
-              finalData = await imageToBase64(data);
-            } catch (e) {
-              console.warn('Skipping image due to load error:', data, e);
-              return false;
-            }
-          }
-          // Validate format before adding
-          if (!finalData.match(/^data:image\/(png|jpeg|jpg);base64,/)) {
-            console.warn('Skipping invalid image format:', finalData.substring(0, 50));
-            return false;
-          }
-          let format = 'PNG';
-          if (finalData.startsWith('data:image/jpeg')) format = 'JPEG';
+          if (!data.startsWith('data:')) { try { finalData = await imageToBase64(data); } catch (e) { } }
+          let format = 'PNG'; if (finalData.startsWith('data:image/jpeg')) format = 'JPEG';
           doc.addImage(finalData, format, x, y, w, h, undefined, 'FAST');
-          return true;
-        } catch (e) {
-          console.error('Error adding image to PDF:', e);
-          return false;
-        }
+        } catch (e) { console.error(e); }
       };
 
       const drawSectionHeader = (title: string, y: number) => {
@@ -1434,12 +1002,12 @@ const App: React.FC = () => {
       doc.setFont("helvetica", "bold"); doc.setTextColor(...iBlue); doc.setFontSize(14);
       doc.text('Universidad Militar Nueva Granada', pageWidth / 2, 16, { align: 'center' });
       doc.setFontSize(9); doc.setFont("helvetica", "normal");
-      doc.text('Facultad de Ciencias Básicas y Aplicadas - Departamento de Física', pageWidth / 2, 21, { align: 'center' });
+      doc.text('Facultad de Ciencias B├ísicas y Aplicadas - Departamento de F├¡sica', pageWidth / 2, 21, { align: 'center' });
 
       doc.setDrawColor(...iBlue); doc.setLineWidth(0.4); doc.rect(margin, 32, pageWidth - 2 * margin, 25);
       doc.setTextColor(0, 0, 0); doc.setFontSize(9);
-      doc.text(`Práctica No: ${report.practiceNo}`, margin + 4, 38);
-      doc.text(`Título: ${report.title}`, margin + 4, 43);
+      doc.text(`Pr├íctica No: ${report.practiceNo}`, margin + 4, 38);
+      doc.text(`T├¡tulo: ${report.title}`, margin + 4, 43);
       doc.text(`Docente: ${report.teacher}`, margin + 4, 48);
       const names = [report.leader, report.int2, report.int3, report.int4].map(formatStudentName).filter(Boolean).join('; ');
       doc.text(`Integrantes: ${names}`, margin + 4, 53);
@@ -1464,14 +1032,14 @@ const App: React.FC = () => {
 
         if (chunks.length === 0) return y;
 
-        // 2. Encabezado de sección
+        // 2. Encabezado de secci├│n
         if (y + 25 > pageBottomLimit) {
           doc.addPage();
           y = 20;
         }
         let currentY = drawSectionHeader(title, y);
 
-        // 3. Procesar fragmentos con saltos de página inteligentes
+        // 3. Procesar fragmentos con saltos de p├ígina inteligentes
         for (const chunk of chunks) {
           const html = renderLatexToHtml(chunk, report.images);
           const capture = await captureSectionBox(html, pageWidth - 2 * margin);
@@ -1492,11 +1060,11 @@ const App: React.FC = () => {
 
       let currentY = 65;
       currentY = await addBoxedSec('RESUMEN', report.abstract, currentY);
-      currentY = await addBoxedSec('INTRODUCCIÓN', report.introduction, currentY);
+      currentY = await addBoxedSec('INTRODUCCI├ôN', report.introduction, currentY);
       currentY = await addBoxedSec('OBJETIVO GENERAL', report.objectiveGeneral, currentY);
-      currentY = await addBoxedSec('OBJETIVOS ESPECÍFICOS', report.objectivesSpecific, currentY);
+      currentY = await addBoxedSec('OBJETIVOS ESPEC├ìFICOS', report.objectivesSpecific, currentY);
       if (report.hypothesis && report.hypothesis.trim()) {
-        currentY = await addBoxedSec('HIPÓTESIS', report.hypothesis, currentY);
+        currentY = await addBoxedSec('HIP├ôTESIS', report.hypothesis, currentY);
       }
 
       // Marco Conceptual suele ser largo, verificamos espacio
@@ -1521,7 +1089,7 @@ const App: React.FC = () => {
             <div style="background: #004b87; color: white; padding: 4px 8px; font-weight: bold; font-size: 9px; text-transform: uppercase;">${title}</div>
             <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
               <tr style="background: #f1f5f9; color: #334155;">
-                <th style="padding: 4px 8px; border: 1px solid #e2e8f0; width: 75%; text-align: left;">Ítem / Descripción</th>
+                <th style="padding: 4px 8px; border: 1px solid #e2e8f0; width: 75%; text-align: left;">├ìtem / Descripci├│n</th>
                 <th style="padding: 4px 8px; border: 1px solid #e2e8f0; text-align: center; width: 25%;">Cant.</th>
               </tr>
               ${items.map(m => `<tr>
@@ -1564,11 +1132,11 @@ const App: React.FC = () => {
 
         // --- Data Table ---
         const indirectHeaders = series.indirectVariables.map(iv =>
-          `<th style="padding: 4px; border: 1px solid #ddd; background: #7e22ce;">${iv.symbol} [${iv.unit}]</th><th style="padding: 4px; border: 1px solid #ddd; background: #6b21a8;">Δ${iv.symbol}</th>`
+          `<th style="padding: 4px; border: 1px solid #ddd; background: #7e22ce;">${iv.symbol} [${iv.unit}]</th><th style="padding: 4px; border: 1px solid #ddd; background: #6b21a8;">╬ö${iv.symbol}</th>`
         ).join('');
 
         const extraHeaders = series.extraVariables.map(ev =>
-          `<th style="padding: 4px; border: 1px solid #ddd; background: #064e3b;" colSpan="${(ev.numRepetitions || 1) + 1}">${ev.symbol} [${ev.unit}]</th><th style="padding: 4px; border: 1px solid #ddd; background: #065f46;">Δ${ev.symbol}</th>`
+          `<th style="padding: 4px; border: 1px solid #ddd; background: #064e3b;" colSpan="${(ev.numRepetitions || 1) + 1}">${ev.symbol} [${ev.unit}]</th><th style="padding: 4px; border: 1px solid #ddd; background: #065f46;">╬ö${ev.symbol}</th>`
         ).join('');
 
         const dataHtml = `<table style="width: 100%; border-collapse: collapse; font-size: 8px;">
@@ -1576,10 +1144,10 @@ const App: React.FC = () => {
             <th style="padding: 4px; border: 1px solid #ddd;">#</th>
             ${extraHeaders}
             <th style="padding: 4px; border: 1px solid #ddd;" colSpan="${series.numRepetitionsIndep}">${series.varIndep.name}</th>
-            <th style="padding: 4px; border: 1px solid #ddd; background: #065f46;">ΔX</th>
+            <th style="padding: 4px; border: 1px solid #ddd; background: #065f46;">╬öX</th>
             <th style="padding: 4px; border: 1px solid #ddd; background: #059669;">PROM X</th>
             <th style="padding: 4px; border: 1px solid #ddd;" colSpan="${series.numRepetitionsDep}">${series.varDep.name}</th>
-            <th style="padding: 4px; border: 1px solid #ddd; background: #1e40af;">ΔY</th>
+            <th style="padding: 4px; border: 1px solid #ddd; background: #1e40af;">╬öY</th>
             <th style="padding: 4px; border: 1px solid #ddd; background: #2563eb;">PROM Y</th>
             ${indirectHeaders}
         </tr>
@@ -1658,7 +1226,7 @@ const App: React.FC = () => {
         const regCapture = await captureSectionBox(regHtml, pageWidth - 2 * margin);
         if (regCapture) {
           if (currentY + regCapture.height + 10 > pageBottomLimit) { doc.addPage(); currentY = 20; }
-          drawSectionHeader(isMulti ? `REGRESIÓN (Serie ${idx + 1})` : 'DATOS PROMEDIO PARA REGRESIÓN', currentY);
+          drawSectionHeader(isMulti ? `REGRESI├ôN (Serie ${idx + 1})` : 'DATOS PROMEDIO PARA REGRESI├ôN', currentY);
           currentY += 6;
           await addSafeImage(regCapture.data, margin, currentY, pageWidth - 2 * margin, regCapture.height);
           currentY += regCapture.height + 10;
@@ -1690,7 +1258,7 @@ const App: React.FC = () => {
           const estCapture = await captureSectionBox(renderLatexToHtml(estHtmlRaw), pageWidth - 2 * margin);
           if (estCapture) {
             if (currentY + estCapture.height + 10 > pageBottomLimit) { doc.addPage(); currentY = 20; }
-            drawSectionHeader(isMulti ? `PARÁMETROS (Serie ${idx + 1})` : 'ESTIMACIÓN DE PARÁMETROS', currentY);
+            drawSectionHeader(isMulti ? `PAR├üMETROS (Serie ${idx + 1})` : 'ESTIMACI├ôN DE PAR├üMETROS', currentY);
             currentY += 6;
             await addSafeImage(estCapture.data, margin, currentY, pageWidth - 2 * margin, estCapture.height);
             currentY += estCapture.height + 10;
@@ -1698,11 +1266,11 @@ const App: React.FC = () => {
         }
       }
 
-      currentY = await addBoxedSec('ANÁLISIS DE RESULTADOS', report.analysis, currentY);
+      currentY = await addBoxedSec('AN├üLISIS DE RESULTADOS', report.analysis, currentY);
 
       if (report.graphImageUrl) {
         if (currentY + 110 > pageBottomLimit) { doc.addPage(); currentY = 20; }
-        drawSectionHeader('REPRESENTACIÓN GRÁFICA', currentY);
+        drawSectionHeader('REPRESENTACI├ôN GR├üFICA', currentY);
         await addSafeImage(report.graphImageUrl, margin + 5, currentY + 8, pageWidth - 2 * margin - 10, 100);
         if (report.desmosLink) {
           doc.setFontSize(8); doc.setTextColor(100, 100, 100);
@@ -1710,93 +1278,13 @@ const App: React.FC = () => {
         }
         currentY += 120;
       }
+
       currentY = await addBoxedSec('CONCLUSIONES', report.conclusions, currentY);
-      currentY = await addBoxedSec('BIBLIOGRAFÍA', report.bibliography, currentY);
-
-      // --- APÉNDICES ---
-      if (report.appendices) {
-        // APÉNDICE A: CÓDIGO INTEGENTE
-        if (report.appendices.codeContent) {
-          if (currentY + 40 > pageBottomLimit) { doc.addPage(); currentY = 20; }
-          currentY = drawSectionHeader('APÉNDICE A: CÓDIGO / PSEUDOCÓDIGO', currentY);
-
-
-          // Determine language for highlighting
-          const currentBoard = (report.appendices.selectedBoard || 'arduino').toLowerCase();
-          let grammar = Prism.languages.clike;
-          if (currentBoard.includes('python')) grammar = Prism.languages.python;
-          else if (currentBoard.includes('script') || currentBoard.includes('js')) grammar = Prism.languages.javascript;
-          else if (currentBoard.includes('arduino') || currentBoard.includes('cpp')) grammar = Prism.languages.cpp;
-
-          const highlightedCode = Prism.highlight(
-            String(report.appendices.codeContent || ''),
-            grammar,
-            currentBoard
-          );
-
-          // Render Code as HTML for capture with Prism classes
-          const codeHtml = `
-            <div style="background: #1e293b; color: #f8f8f2; padding: 16px; border-radius: 8px; font-family: 'Fira Code', monospace; font-size: 10px; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word; border: 1px solid #334155;">
-              <div style="color: #94a3b8; font-size: 9px; margin-bottom: 8px; border-bottom: 1px solid #334155; padding-bottom: 4px;">
-                ${(report.appendices.selectedBoard || 'Código').toUpperCase()}
-              </div>
-              <div class="code-highlight content">${highlightedCode}</div>
-            </div>
-            <style>
-              .token.comment, .token.prolog, .token.doctype, .token.cdata { color: #8292a2; }
-              .token.punctuation { color: #f8f8f2; }
-              .token.namespace { opacity: .7; }
-              .token.property, .token.tag, .token.constant, .token.symbol, .token.deleted { color: #f92672; }
-              .token.boolean, .token.number { color: #ae81ff; }
-              .token.selector, .token.attr-name, .token.string, .token.char, .token.builtin, .token.inserted { color: #a6e22e; }
-              .token.operator, .token.entity, .token.url, .language-css .token.string, .style .token.string, .token.variable { color: #f8f8f2; }
-              .token.atrule, .token.attr-value, .token.function, .token.class-name { color: #e6db74; }
-              .token.keyword { color: #66d9ef; }
-              .token.regex, .token.important { color: #fd971f; }
-              .token.important, .token.bold { font-weight: bold; }
-              .token.italic { font-style: italic; }
-            </style>
-          `;
-
-          const codeCapture = await captureSectionBox(codeHtml, pageWidth - 2 * margin);
-          if (codeCapture) {
-            await addSafeImage(codeCapture.data, margin, currentY, pageWidth - 2 * margin, codeCapture.height);
-            currentY += codeCapture.height + 10;
-          }
-        }
-
-        // APÉNDICE B: ESQUEMÁTICO
-        if (report.appendices.cirkitSchematicImage) {
-          if (currentY + 100 > pageBottomLimit) { doc.addPage(); currentY = 20; }
-          currentY = drawSectionHeader('APÉNDICE B: ESQUEMÁTICO DEL CIRCUITO', currentY);
-          await addSafeImage(report.appendices.cirkitSchematicImage, margin + 10, currentY, 130, 80);
-          currentY += 90;
-        }
-
-        // APÉNDICE C: CONFIGURACIÓN DE PINES
-        if (report.appendices.pinoutBoardImage) {
-          if (currentY + 100 > pageBottomLimit) { doc.addPage(); currentY = 20; }
-          currentY = drawSectionHeader('APÉNDICE C: CONFIGURACIÓN DE PINES', currentY);
-
-          await addSafeImage(report.appendices.pinoutBoardImage, margin + 10, currentY, 130, 80);
-
-          if (report.appendices.pinoutBoardName) {
-            doc.setFontSize(9);
-            doc.setTextColor(100, 100, 100);
-            doc.text(`Placa: ${report.appendices.pinoutBoardName}`, margin + 10, currentY + 85);
-          }
-          currentY += 95;
-        }
-      }
+      currentY = await addBoxedSec('BIBLIOGRAF├ìA', report.bibliography, currentY);
 
       doc.save(`Informe_Fisica_UMNG_${sanitizeFilename(report.practiceNo || 'Lab')}.pdf`);
-    } catch (e) {
-      console.error('Error generating PDF:', e);
-      alert(`Error al generar PDF: ${e instanceof Error ? e.message : 'Error desconocido'}`);
-    } finally {
-      // CRITICAL: Always restore button state, even if generation fails
-      setIsGenerating(false);
-    }
+    } catch (e) { console.error(e); alert("Error al generar PDF."); }
+    setIsGenerating(false);
   };
 
   const handleEvaluate = (levelIndex: number) => {
@@ -1828,7 +1316,7 @@ const App: React.FC = () => {
   };
 
   const handleDeleteCriterion = (id: string) => {
-    if (confirm("¿Estás seguro de eliminar esta competencia? Se perderán las evaluaciones asociadas.")) {
+    if (confirm("┬┐Est├ís seguro de eliminar esta competencia? Se perder├ín las evaluaciones asociadas.")) {
       const newRubric = report.rubric.filter(c => c.id !== id);
       const newEvals = (report.evaluations || []).filter(e => e.criterionId !== id);
       updateReport({ rubric: newRubric, evaluations: newEvals });
@@ -1871,7 +1359,7 @@ const App: React.FC = () => {
 
   const deleteSeries = (index: number) => {
     if (report.dataSeries.length <= 1) return;
-    if (confirm("¿Eliminar esta serie de datos? Permanentemente.")) {
+    if (confirm("┬┐Eliminar esta serie de datos? Permanentemente.")) {
       setReport(prev => {
         const newSeries = prev.dataSeries.filter((_, i) => i !== index);
         const newIndex = index >= newSeries.length ? newSeries.length - 1 : index;
@@ -1916,165 +1404,55 @@ const App: React.FC = () => {
                 <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, 'logoUrl')} />
               </div>
               <div className="flex-1 grid grid-cols-2 gap-6">
-                <Input label="Práctica #" value={report.practiceNo} onChange={v => updateReport({ practiceNo: v })} />
-                <Input label="Título de la Práctica" value={report.title} onChange={v => updateReport({ title: v })} />
-                <Input label="Docente de Cátedra" value={report.teacher} onChange={v => updateReport({ teacher: v })} />
+                <Input label="Pr├íctica #" value={report.practiceNo} onChange={v => updateReport({ practiceNo: v })} />
+                <Input label="T├¡tulo de la Pr├íctica" value={report.title} onChange={v => updateReport({ title: v })} />
+                <Input label="Docente de C├ítedra" value={report.teacher} onChange={v => updateReport({ teacher: v })} />
                 <Input label="Fecha de Entrega" type="date" value={report.dateDelivery} onChange={v => updateReport({ dateDelivery: v })} />
               </div>
             </div>
             <div className="bg-blue-50/50 p-10 rounded-[4rem] border-2 border-blue-100/50 grid grid-cols-2 gap-6 relative shadow-inner">
-              <div className="absolute top-[-12px] left-10 bg-blue-100 px-4 py-1 rounded-full text-[9px] font-black text-blue-600 uppercase tracking-[0.2em]">Identificación de Estudiantes</div>
+              <div className="absolute top-[-12px] left-10 bg-blue-100 px-4 py-1 rounded-full text-[9px] font-black text-blue-600 uppercase tracking-[0.2em]">Identificaci├│n de Estudiantes</div>
               {['leader', 'int2', 'int3', 'int4'].map(k => (
                 <div key={k} className="space-y-1">
-                  <label className="text-[9px] font-black text-blue-800 uppercase ml-4 tracking-widest">{k === 'leader' ? 'Líder de Equipo' : 'Integrante'}</label>
+                  <label className="text-[9px] font-black text-blue-800 uppercase ml-4 tracking-widest">{k === 'leader' ? 'L├¡der de Equipo' : 'Integrante'}</label>
                   <input className="w-full p-4 rounded-3xl border-none shadow-sm text-sm focus:ring-2 focus:ring-blue-300 bg-white" placeholder="Nombre completo" value={(report as any)[k]} onChange={e => updateReport({ [k]: e.target.value })} />
                 </div>
               ))}
             </div>
-            <Section title="Resumen (Abstract)" value={report.abstract} onChange={v => updateReport({ abstract: v })} help="Resuma brevemente la metodología y resultados clave." rows={6} report={report} updateReport={updateReport} />
+            <Section title="Resumen (Abstract)" value={report.abstract} onChange={v => updateReport({ abstract: v })} help="Resuma brevemente la metodolog├¡a y resultados clave." rows={6} report={report} updateReport={updateReport} />
           </div>
         );
       case FormStep.TextContent:
         return (
           <div className="space-y-12">
             {header}
-            <Section title="Introducción Teórica" value={report.introduction} onChange={v => updateReport({ introduction: v })} help="Describa el fenómeno físico a estudiar." report={report} updateReport={updateReport} />
+            <Section title="Introducci├│n Te├│rica" value={report.introduction} onChange={v => updateReport({ introduction: v })} help="Describa el fen├│meno f├¡sico a estudiar." report={report} updateReport={updateReport} />
             <Section title="Objetivo General" value={report.objectiveGeneral} onChange={v => updateReport({ objectiveGeneral: v })} rows={3} report={report} updateReport={updateReport} />
-            <Section title="Objetivos Específicos" value={report.objectivesSpecific} onChange={v => updateReport({ objectivesSpecific: v })} rows={5} report={report} updateReport={updateReport} />
-            <Section title="Hipótesis" value={report.hypothesis} onChange={v => updateReport({ hypothesis: v })} help="Opcional: Describa la hipótesis de la práctica si aplica." rows={3} report={report} updateReport={updateReport} />
-            <Section title="Marco Conceptual / Mapa Mental" value={report.marcoConceptual} onChange={v => updateReport({ marcoConceptual: v })} help="Puede incluir imágenes o diagramas usando Markdown." rows={8} report={report} updateReport={updateReport} />
+            <Section title="Objetivos Espec├¡ficos" value={report.objectivesSpecific} onChange={v => updateReport({ objectivesSpecific: v })} rows={5} report={report} updateReport={updateReport} />
+            <Section title="Hip├│tesis" value={report.hypothesis} onChange={v => updateReport({ hypothesis: v })} help="Opcional: Describa la hip├│tesis de la pr├íctica si aplica." rows={3} report={report} updateReport={updateReport} />
+            <Section title="Marco Conceptual / Mapa Mental" value={report.marcoConceptual} onChange={v => updateReport({ marcoConceptual: v })} help="Puede incluir im├ígenes o diagramas usando Markdown." rows={8} report={report} updateReport={updateReport} />
           </div>
         );
       case FormStep.Experimental:
         return (
           <div className="space-y-12">
             {header}
+            <div className="grid grid-cols-1 gap-10">
+              <Section title="Descripci├│n del Montaje" value={report.montajeText} onChange={v => updateReport({ montajeText: v })} report={report} updateReport={updateReport} />
 
-            {/* I. DESCRIPCIÓN GRÁFICA (TABS) */}
-            <div className="bg-white p-6 rounded-[3rem] shadow-xl border-4 border-slate-50">
-              <div className="flex items-center space-x-3 mb-6 border-b-2 border-slate-100 pb-3 pl-6 pt-4">
-                <div className="p-2 bg-slate-100 rounded-xl text-slate-600"><ImageIcon size={20} /></div>
-                <h3 className="font-black text-[#004b87] uppercase tracking-widest text-xs">I. DESCRIPCIÓN GRÁFICA DEL MONTAJE</h3>
-              </div>
-
-              {/* Tabs Nav */}
-              <div className="flex space-x-2 bg-slate-100 p-2 rounded-2xl mb-6 overflow-x-auto mx-6">
-                {[
-                  { id: 'fisico', label: 'A) MONTAJE FÍSICO', icon: <ImageIcon size={16} /> },
-                  { id: 'esquematico', label: 'B) ESQUEMÁTICO', icon: <Layers size={16} /> },
-                  { id: 'codigo', label: 'C) CÓDIGO', icon: <Code size={16} /> },
-                  { id: 'pines', label: 'D) PINES', icon: <Database size={16} /> }
-                ].map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab.id
-                      ? 'bg-[#004b87] text-white shadow-lg scale-105'
-                      : 'bg-white text-slate-400 hover:bg-white/80'
-                      }`}
-                  >
-                    <span className="mr-2">{tab.icon}</span> {tab.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* TAB CONTENTS */}
-              <div className="px-6 pb-6">
-                {/* A) MONTAJE FÍSICO */}
-                <div className={activeTab === 'fisico' ? 'block' : 'hidden'}>
-                  <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2rem] p-8 text-center hover:border-blue-300 transition-all group relative overflow-hidden min-h-[400px] flex items-center justify-center">
-                    {report.setupImageUrl ? (
-                      <img src={report.setupImageUrl} className="w-full h-full object-contain" />
-                    ) : (
-                      <div className="space-y-4">
-                        <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto shadow-sm"><ImageIcon size={32} className="text-slate-300" /></div>
-                        <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Arrastra o haz click para subir foto del montaje</p>
-                      </div>
-                    )}
-                    <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={e => handleImageUpload(e, 'setupImageUrl')} />
-                    {report.setupImageUrl && (
-                      <button onClick={(e) => { e.stopPropagation(); updateReport({ setupImageUrl: '' }) }} className="absolute top-4 right-4 p-3 bg-red-100 text-red-500 rounded-xl hover:bg-red-200 transition-colors z-10 shadow-sm"><Trash2 size={20} /></button>
-                    )}
-                  </div>
-                  <p className="text-center text-[10px] text-slate-400 mt-4 font-bold uppercase tracking-widest">Suba una foto clara de la disposición de equipos en el laboratorio</p>
-                </div>
-
-                {/* B) ESQUEMÁTICO */}
-                <div className={activeTab === 'esquematico' ? 'block' : 'hidden'}>
-                  <CirkitEmbed
-                    projectUrl={report.appendices?.cirkitProjectId || ''}
-                    imageUrl={report.appendices?.cirkitSchematicImage || ''}
-                    onUpdate={(data: { projectUrl?: string; imageUrl?: string }) => {
-                      updateReport({
-                        appendices: {
-                          ...(report.appendices || {}),
-                          cirkitSchematicImage: data.imageUrl || report.appendices?.cirkitSchematicImage,
-                          cirkitProjectId: data.projectUrl || report.appendices?.cirkitProjectId
-                        }
-                      });
-                    }}
-                  />
-                </div>
-
-                {/* C) CÓDIGO */}
-                <div className={activeTab === 'codigo' ? 'block' : 'hidden'}>
-                  <CodeEditor
-                    initialCode={report.appendices?.codeContent || ''}
-                    selectedBoard={report.appendices?.selectedBoard || 'arduino'}
-                    onUpdate={(code: string, language: string) => {
-                      updateReport({
-                        appendices: {
-                          ...(report.appendices || {}),
-                          codeContent: code, // Now guaranteed to be a string
-                          selectedBoard: language
-                        }
-                      });
-                    }}
-                  />
-                </div>
-
-                {/* D) PINES */}
-                <div className={activeTab === 'pines' ? 'block' : 'hidden'}>
-                  <PinoutViewer
-                    selectedBoardId={report.appendices?.selectedBoardId}
-                    onSelectBoard={(boardId: string) => {
-                      updateReport({
-                        appendices: {
-                          ...(report.appendices || {}),
-                          selectedBoardId: boardId
-                        }
-                      });
-                    }}
-                    onExportToAppendix={(boardName: string, imageUrl: string) => {
-                      updateReport({
-                        appendices: {
-                          ...(report.appendices || {}),
-                          pinoutBoardName: boardName,
-                          pinoutBoardImage: imageUrl
-                        }
-                      });
-                    }}
-                  />
+              <div className="space-y-6">
+                <h4 className="text-[10px] font-black text-[#004b87] uppercase tracking-[0.2em] border-b-2 border-[#9e1b32] pb-3 flex items-center justify-center">
+                  <ImageIcon size={18} className="mr-3 text-[#9e1b32]" /> Esquema Experimental
+                </h4>
+                <div className="w-full max-w-5xl mx-auto aspect-video border-4 border-dashed border-[#004b87]/10 rounded-[3rem] bg-white flex items-center justify-center relative overflow-hidden group shadow-2xl hover:border-[#004b87]/30 transition-all">
+                  {report.setupImageUrl ? <img src={report.setupImageUrl} className="w-full h-full object-contain p-4" /> : <div className="text-center group-hover:scale-110 transition-transform"><ImageIcon size={80} className="mx-auto text-slate-100 mb-4" /><span className="text-xs font-black text-slate-300 uppercase tracking-widest block">Arrastre o Clic para Subir Imagen</span></div>}
+                  <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, 'setupImageUrl')} />
                 </div>
               </div>
             </div>
-
-            {/* II. DESCRIPCIÓN TEXTUAL */}
-            <Section
-              title="II. DESCRIPCIÓN DEL MONTAJE"
-              value={report.montajeText}
-              onChange={(v: string) => updateReport({ montajeText: v })}
-              startIcon={<AlignLeft size={22} className="text-purple-300" />}
-              gradient="from-slate-700 to-slate-900"
-              help="Describa experimentalmente cómo se realizó el montaje y la conexión de los equipos."
-              report={report}
-              updateReport={updateReport}
-            />
-
-            {/* III. MATERIALES */}
             <div className="bg-white p-12 rounded-[4rem] shadow-2xl border-2 border-slate-50 space-y-8">
               <div className="flex flex-col md:flex-row justify-between items-center border-b-2 border-[#9e1b32] pb-4 gap-4">
-                <h3 className="text-sm font-black text-[#004b87] uppercase flex items-center tracking-[0.2em]"><Layers className="mr-3 w-5 h-5 text-[#9e1b32]" /> III. Materiales y Equipos</h3>
+                <h3 className="text-sm font-black text-[#004b87] uppercase flex items-center tracking-[0.2em]"><Layers className="mr-3 w-5 h-5 text-[#9e1b32]" /> Materiales y Equipos</h3>
 
                 <div className="flex items-center gap-4">
                   <div className="flex bg-slate-100 p-1 rounded-xl">
@@ -2082,7 +1460,7 @@ const App: React.FC = () => {
                       <TableIcon size={14} className="mr-2" /> Listado
                     </button>
                     <button onClick={() => setMaterialsTab('GALLERY')} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center ${materialsTab === 'GALLERY' ? 'bg-white text-[#004b87] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
-                      <ImageIcon size={14} className="mr-2" /> Galería
+                      <ImageIcon size={14} className="mr-2" /> Galer├¡a
                     </button>
                   </div>
 
@@ -2122,7 +1500,7 @@ const App: React.FC = () => {
                           </div>
                         </div>
                       ))}
-                      {report.materials.filter(m => m.category === 'LABORATORY').length === 0 && <div className="p-8 text-center text-[10px] text-slate-300 italic">No hay ítems registrados.</div>}
+                      {report.materials.filter(m => m.category === 'LABORATORY').length === 0 && <div className="p-8 text-center text-[10px] text-slate-300 italic">No hay ├¡tems registrados.</div>}
                     </div>
                   </div>
 
@@ -2151,7 +1529,7 @@ const App: React.FC = () => {
                           </div>
                         </div>
                       ))}
-                      {report.materials.filter(m => m.category === 'STUDENT').length === 0 && <div className="p-8 text-center text-[10px] text-emerald-300 italic">No hay ítems registrados.</div>}
+                      {report.materials.filter(m => m.category === 'STUDENT').length === 0 && <div className="p-8 text-center text-[10px] text-emerald-300 italic">No hay ├¡tems registrados.</div>}
                     </div>
                   </div>
                 </div>
@@ -2168,7 +1546,7 @@ const App: React.FC = () => {
                             {m.imageUrl ? <img src={m.imageUrl} className="w-full h-full object-cover" /> : <Settings size={24} className="text-blue-200" />}
                           </div>
                           <h5 className="font-black text-[#004b87] text-xs uppercase mb-1">{m.item}</h5>
-                          {showMatDesc && <p className="text-[10px] text-slate-500 leading-tight mb-4 min-h-[2.5em]">{m.description || 'Sin descripción'}</p>}
+                          {showMatDesc && <p className="text-[10px] text-slate-500 leading-tight mb-4 min-h-[2.5em]">{m.description || 'Sin descripci├│n'}</p>}
                           <div className="flex gap-2">
                             <button onClick={() => setEditingMaterial(m)} className="flex-1 bg-slate-50 text-blue-600 py-2 rounded-xl text-[9px] font-black uppercase hover:bg-blue-50 transition-colors">Editar</button>
                             <button onClick={() => updateReport({ materials: report.materials.filter(x => x.id !== m.id) })} className="p-2 bg-red-50 text-red-400 rounded-xl hover:bg-red-100 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
@@ -2190,31 +1568,20 @@ const App: React.FC = () => {
                             {m.imageUrl ? <img src={m.imageUrl} className="w-full h-full object-cover" /> : <Users size={24} className="text-emerald-200" />}
                           </div>
                           <h5 className="font-black text-emerald-800 text-xs uppercase mb-1">{m.item}</h5>
-                          {showMatDesc && <p className="text-[10px] text-slate-500 leading-tight mb-4 min-h-[2.5em]">{m.description || 'Sin descripción'}</p>}
+                          {showMatDesc && <p className="text-[10px] text-slate-500 leading-tight mb-4 min-h-[2.5em]">{m.description || 'Sin descripci├│n'}</p>}
                           <div className="flex gap-2">
-                            <button onClick={() => setEditingMaterial(m)} className="flex-1 bg-emerald-50 text-emerald-600 py-2 rounded-xl text-[9px] font-black uppercase hover:bg-emerald-100 transition-colors">Editar</button>
+                            <button onClick={() => setEditingMaterial(m)} className="flex-1 bg-slate-50 text-emerald-600 py-2 rounded-xl text-[9px] font-black uppercase hover:bg-emerald-50 transition-colors">Editar</button>
                             <button onClick={() => updateReport({ materials: report.materials.filter(x => x.id !== m.id) })} className="p-2 bg-red-50 text-red-400 rounded-xl hover:bg-red-100 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
                           </div>
                         </div>
                       ))}
-                      {report.materials.filter(m => m.category === 'STUDENT').length === 0 && <p className="text-[10px] text-emerald-300 italic p-4 text-center col-span-full">No hay materiales de estudiante registrados.</p>}
+                      {report.materials.filter(m => m.category === 'STUDENT').length === 0 && <p className="text-[10px] text-slate-300 italic p-4 text-center col-span-full">No hay materiales de estudiante registrados.</p>}
                     </div>
                   </div>
                 </>
               )}
             </div>
-
-            {/* IV. PROCEDIMIENTO */}
-            <Section
-              title="IV. PROCEDIMIENTO"
-              value={report.procedimiento}
-              onChange={(v: string) => updateReport({ procedimiento: v })}
-              startIcon={<ListChecks size={22} className="text-emerald-300" />}
-              help="Describa paso a paso el procedimiento, puede incluir fotos."
-              report={report}
-              updateReport={updateReport}
-            />
-
+            <Section title="Procedimiento Experimental" value={report.procedimiento} onChange={v => updateReport({ procedimiento: v })} report={report} updateReport={updateReport} />
           </div>
         );
       case FormStep.Data:
@@ -2322,7 +1689,7 @@ const App: React.FC = () => {
                           </div>
                         </div>
                       </th>
-                      <th className="p-5 bg-emerald-700 border-r border-white/10">ΔX</th>
+                      <th className="p-5 bg-emerald-700 border-r border-white/10">╬öX</th>
 
                       {/* Dependent Variable */}
                       <th
@@ -2340,7 +1707,7 @@ const App: React.FC = () => {
                           </div>
                         </div>
                       </th>
-                      <th className="p-5 bg-blue-700 border-r border-white/10">ΔY</th>
+                      <th className="p-5 bg-blue-700 border-r border-white/10">╬öY</th>
 
                       {/* Indirect Variables Headers */}
                       {activeSeries.indirectVariables.map(iv => (
@@ -2394,7 +1761,7 @@ const App: React.FC = () => {
                                 <td className="p-0 border-r border-slate-100 bg-emerald-50/20">
                                   <input className="w-full p-4 text-center bg-transparent focus:bg-white focus:ring-4 focus:ring-emerald-100 outline-none font-bold text-emerald-700 transition-all text-[10px]"
                                     value={row.others[`${ev.id}_unc`] || ''}
-                                    placeholder={`±${ev.uncertainty}`}
+                                    placeholder={`┬▒${ev.uncertainty}`}
                                     onChange={e => {
                                       const nr = activeSeries.measurements.map((m, i) => i === idx ? { ...m, others: { ...m.others, [`${ev.id}_unc`]: e.target.value } } : m);
                                       updateActiveSeries({ measurements: nr });
@@ -2449,7 +1816,7 @@ const App: React.FC = () => {
             </div>
             <div className="flex justify-center">
               <div className="flex items-center space-x-6 bg-white px-10 py-5 rounded-[2.5rem] shadow-2xl border-4 border-slate-50">
-                <span className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em]">Número de Filas:</span>
+                <span className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em]">N├║mero de Filas:</span>
                 <div className="flex items-center space-x-4">
                   <button onClick={() => updateActiveSeries({ numMeasurements: Math.max(1, activeSeries.numMeasurements - 1) })} className="text-slate-200 hover:text-red-500 transition-colors"><MinusCircle size={24} /></button>
                   <input type="number" className="w-24 p-3 rounded-2xl border-2 border-slate-100 font-black text-center text-xl text-[#004b87] focus:ring-4 focus:ring-[#004b87]/10 outline-none" value={activeSeries.numMeasurements} onChange={e => updateActiveSeries({ numMeasurements: parseInt(e.target.value) || 1 })} />
@@ -2472,7 +1839,7 @@ const App: React.FC = () => {
 
               <div className="bg-white p-10 rounded-[3.5rem] shadow-2xl border-2 border-slate-50 space-y-6 relative overflow-hidden group max-w-5xl mx-auto">
                 <div className="flex justify-between items-center border-b-2 border-[#9e1b32] pb-3 relative">
-                  <label className="text-[10px] font-black text-[#004b87] uppercase flex items-center tracking-widest"><LinkIcon size={14} className="mr-2 text-[#9e1b32]" /> GRÁFICA INTERACTIVA</label>
+                  <label className="text-[10px] font-black text-[#004b87] uppercase flex items-center tracking-widest"><LinkIcon size={14} className="mr-2 text-[#9e1b32]" /> GR├üFICA INTERACTIVA</label>
                   {/* Optional: We can still keep an external link if needed, but the main interaction is now embedded */}
                 </div>
 
@@ -2493,97 +1860,21 @@ const App: React.FC = () => {
                       </span>
                     </div>
                     <div className="relative group max-w-2xl mx-auto border-8 border-white shadow-2xl rounded-xl overflow-hidden transform transition-all hover:scale-[1.02]">
-                      <img src={report.graphImageUrl} className="w-full h-auto object-contain bg-white" alt="Gráfica Capturada" />
+                      <img src={report.graphImageUrl} className="w-full h-auto object-contain bg-white" alt="Gr├ífica Capturada" />
                       <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
                         <button onClick={() => updateReport({ graphImageUrl: "" })} className="bg-red-500 text-white px-4 py-2 rounded-lg font-bold text-xs hover:bg-red-600 flex items-center gap-2">
                           <Trash2 size={16} /> Eliminar Captura
                         </button>
                       </div>
                     </div>
-                    <p className="text-center text-[10px] text-slate-400 mt-2 uppercasestracking-widest">Esta imagen se incluirá en el informe final</p>
+                    <p className="text-center text-[10px] text-slate-400 mt-2 uppercasestracking-widest">Esta imagen se incluir├í en el informe final</p>
                   </div>
                 )}
               </div>
             </div>
-            <Section title="Análisis de Resultados" value={report.analysis} onChange={v => updateReport({ analysis: v })} help="Compare los valores teóricos vs experimentales." report={report} updateReport={updateReport} />
+            <Section title="An├ílisis de Resultados" value={report.analysis} onChange={v => updateReport({ analysis: v })} help="Compare los valores te├│ricos vs experimentales." report={report} updateReport={updateReport} />
             <Section title="Conclusiones" value={report.conclusions} onChange={v => updateReport({ conclusions: v })} report={report} updateReport={updateReport} />
-            <Section title="Bibliografía" value={report.bibliography} onChange={v => updateReport({ bibliography: v })} report={report} updateReport={updateReport} />
-          </div>
-        );
-      case FormStep.Appendices:
-        return (
-          <div className="space-y-12">
-            {header}
-
-            {/* APÉNDICE A: CÓDIGO */}
-            <div className="bg-white p-8 rounded-[3rem] shadow-xl border-4 border-slate-50">
-              <div className="flex items-center space-x-3 mb-6 border-b-2 border-slate-100 pb-3">
-                <div className="p-2 bg-slate-100 rounded-xl text-slate-600"><Code size={20} /></div>
-                <h3 className="font-black text-[#004b87] uppercase tracking-widest text-xs">APÉNDICE A: CÓDIGO FUENTE</h3>
-              </div>
-              {report.appendices?.codeContent ? (
-                <div className="bg-slate-900 rounded-2xl p-6 overflow-x-auto">
-                  <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
-                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">PLATAFORMA: {report.appendices.selectedBoard || 'N/A'}</span>
-                  </div>
-                  <pre className="text-xs font-mono text-emerald-400 leading-relaxed">
-                    {report.appendices.codeContent}
-                  </pre>
-                </div>
-              ) : (
-                <div className="text-center p-12 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200">
-                  <Code size={32} className="mx-auto text-slate-300 mb-2" />
-                  <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Sin código registrado</p>
-                  <p className="text-[9px] text-slate-300 mt-1">Vaya a la sección MONTAJE -&gt; Pestaña Código</p>
-                </div>
-              )}
-            </div>
-
-            {/* APÉNDICE B: ESQUEMÁTICO */}
-            <div className="bg-white p-8 rounded-[3rem] shadow-xl border-4 border-slate-50">
-              <div className="flex items-center space-x-3 mb-6 border-b-2 border-slate-100 pb-3">
-                <div className="p-2 bg-slate-100 rounded-xl text-slate-600"><Layers size={20} /></div>
-                <h3 className="font-black text-[#004b87] uppercase tracking-widest text-xs">APÉNDICE B: ESQUEMÁTICO</h3>
-              </div>
-              {report.appendices?.cirkitSchematicImage ? (
-                <div className="rounded-[2rem] overflow-hidden border-2 border-slate-100 shadow-sm relative group">
-                  <img src={report.appendices.cirkitSchematicImage} className="w-full h-auto object-contain bg-white" />
-                  <div className="absolute inset-0 bg-black/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    <span className="bg-black/50 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">Vista Previa</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center p-12 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200">
-                  <Layers size={32} className="mx-auto text-slate-300 mb-2" />
-                  <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Sin esquemático capturado</p>
-                  <p className="text-[9px] text-slate-300 mt-1">Vaya a la sección MONTAJE -&gt; Pestaña Esquemático</p>
-                </div>
-              )}
-            </div>
-
-            {/* APÉNDICE C: PINES */}
-            <div className="bg-white p-8 rounded-[3rem] shadow-xl border-4 border-slate-50">
-              <div className="flex items-center space-x-3 mb-6 border-b-2 border-slate-100 pb-3">
-                <div className="p-2 bg-slate-100 rounded-xl text-slate-600"><Database size={20} /></div>
-                <h3 className="font-black text-[#004b87] uppercase tracking-widest text-xs">APÉNDICE C: PINES</h3>
-              </div>
-              {report.appendices?.pinoutBoardImage ? (
-                <div className="rounded-[2rem] overflow-hidden border-2 border-slate-100 shadow-sm relative group">
-                  <img src={report.appendices.pinoutBoardImage} className="w-full h-auto object-contain bg-white" />
-                  {report.appendices.pinoutBoardName && (
-                    <div className="absolute bottom-4 left-4 bg-white/90 px-3 py-1 rounded-lg text-[10px] font-black text-[#004b87] uppercase tracking-widest shadow-sm">
-                      {report.appendices.pinoutBoardName}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center p-12 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200">
-                  <Database size={32} className="mx-auto text-slate-300 mb-2" />
-                  <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Sin pinout exportado</p>
-                  <p className="text-[9px] text-slate-300 mt-1">Vaya a la sección MONTAJE -&gt; Pestaña Pines y haga click en 'Añadir al Reporte'</p>
-                </div>
-              )}
-            </div>
+            <Section title="Bibliograf├¡a" value={report.bibliography} onChange={v => updateReport({ bibliography: v })} report={report} updateReport={updateReport} />
           </div>
         );
     }
@@ -2602,31 +1893,31 @@ const App: React.FC = () => {
             <div className="p-16 overflow-y-auto space-y-12 bg-white text-slate-700 custom-scrollbar">
               <section className="space-y-4">
                 <h3 className="text-2xl font-black text-[#004b87] uppercase tracking-tighter flex items-center"><Info className="mr-3 text-[#9e1b32]" /> Resumen del Sistema</h3>
-                <p className="text-lg leading-relaxed font-medium">PhysicsLab UMNG es un generador de informes de alta precisión. Permite la serialización de datos en formato <span className="text-blue-600 font-bold">JSON</span> para almacenamiento local y la exportación de documentos científicos <span className="text-red-600 font-bold">PDF</span> con renderizado LaTeX de alta fidelidad.</p>
+                <p className="text-lg leading-relaxed font-medium">PhysicsLab UMNG es un generador de informes de alta precisi├│n. Permite la serializaci├│n de datos en formato <span className="text-blue-600 font-bold">JSON</span> para almacenamiento local y la exportaci├│n de documentos cient├¡ficos <span className="text-red-600 font-bold">PDF</span> con renderizado LaTeX de alta fidelidad.</p>
               </section>
               <div className="grid grid-cols-2 gap-10">
                 <div className="bg-blue-50 p-8 rounded-[3rem] border-2 border-blue-100">
                   <h4 className="font-black text-blue-900 uppercase tracking-widest text-xs mb-4 flex items-center"><PlusCircle className="mr-2" size={16} /> Para el Estudiante</h4>
                   <ul className="space-y-3 text-sm font-semibold text-blue-800 list-disc pl-5">
-                    <li>Carga de datos experimentales con promedios automáticos.</li>
-                    <li>Incertidumbres dinámicas por fila de medición.</li>
-                    <li>Integración de gráficas Desmos vía ID único.</li>
-                    <li>Guardado local para evitar pérdida de progreso.</li>
+                    <li>Carga de datos experimentales con promedios autom├íticos.</li>
+                    <li>Incertidumbres din├ímicas por fila de medici├│n.</li>
+                    <li>Integraci├│n de gr├íficas Desmos v├¡a ID ├║nico.</li>
+                    <li>Guardado local para evitar p├®rdida de progreso.</li>
                   </ul>
                 </div>
                 <div className="bg-emerald-50 p-8 rounded-[3rem] border-2 border-emerald-100">
                   <h4 className="font-black text-emerald-900 uppercase tracking-widest text-xs mb-4 flex items-center"><TrendingUp className="mr-2" size={16} /> Para el Docente</h4>
                   <ul className="space-y-3 text-sm font-semibold text-emerald-800 list-disc pl-5">
-                    <li>Sistema de rúbricas parametrizables al 100%.</li>
-                    <li>Edición de pesos porcentuales por competencia.</li>
-                    <li>Calificación visual con retroalimentación inmediata.</li>
-                    <li>Visualización de regresión lineal rigurosa.</li>
+                    <li>Sistema de r├║bricas parametrizables al 100%.</li>
+                    <li>Edici├│n de pesos porcentuales por competencia.</li>
+                    <li>Calificaci├│n visual con retroalimentaci├│n inmediata.</li>
+                    <li>Visualizaci├│n de regresi├│n lineal rigurosa.</li>
                   </ul>
                 </div>
               </div>
               <section className="bg-slate-50 p-8 rounded-[3rem] border-2 border-slate-100">
                 <h4 className="font-black text-[#004b87] uppercase tracking-widest text-xs mb-4">Uso de LaTeX</h4>
-                <p className="text-sm font-medium leading-relaxed">Utilice <code className="bg-white px-2 py-1 rounded-lg border text-blue-600 font-bold">$...$</code> para fórmulas en línea. Ejemplo: <code className="bg-white px-2 py-1 rounded-lg border text-blue-600 font-bold">$\sum F = ma$</code>. Para listas use <code className="bg-white px-2 py-1 rounded-lg border text-blue-600 font-bold">\begin{"{itemize}"} \item ... \end{"{itemize}"}</code>.</p>
+                <p className="text-sm font-medium leading-relaxed">Utilice <code className="bg-white px-2 py-1 rounded-lg border text-blue-600 font-bold">$...$</code> para f├│rmulas en l├¡nea. Ejemplo: <code className="bg-white px-2 py-1 rounded-lg border text-blue-600 font-bold">$\sum F = ma$</code>. Para listas use <code className="bg-white px-2 py-1 rounded-lg border text-blue-600 font-bold">\begin{"{itemize}"} \item ... \end{"{itemize}"}</code>.</p>
               </section>
             </div>
             <div className="p-8 bg-slate-50 border-t-2 border-slate-100 flex justify-center">
@@ -2681,13 +1972,13 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-6">
           <div className="bg-white rounded-[4rem] w-full max-w-5xl shadow-2xl flex flex-col max-h-[90vh]">
             <div className="bg-[#004b87] p-10 flex justify-between items-center rounded-t-[4rem] border-b-4 border-[#9e1b32]">
-              <h2 className="text-white text-3xl font-black uppercase tracking-tighter flex items-center"><Settings2 size={32} className="mr-4" /> GESTIÓN DE RÚBRICA</h2>
+              <h2 className="text-white text-3xl font-black uppercase tracking-tighter flex items-center"><Settings2 size={32} className="mr-4" /> GESTI├ôN DE R├ÜBRICA</h2>
               <button onClick={() => setIsManagingRubric(false)} className="text-white hover:rotate-90 transition-transform"><X size={32} /></button>
             </div>
             <div className="p-12 overflow-y-auto flex-1 space-y-8 bg-[#f8fafc] custom-scrollbar">
               <div className="flex justify-between items-center">
-                <p className="text-slate-500 text-sm font-medium">Configure los criterios de evaluación y sus pesos porcentuales.</p>
-                <button onClick={() => setEditingCriterion({ id: 'crit-' + Date.now(), title: '', category: 'NUEVA CATEGORÍA', section: FormStep.General, weight: 0, levels: [{ label: 'EXCELENTE', points: 0, description: '' }] })} className="bg-emerald-500 text-white px-8 py-4 rounded-3xl font-black uppercase text-xs flex items-center tracking-widest hover:bg-emerald-600 shadow-xl transition-all active:scale-95"><Plus size={18} className="mr-3" /> AGREGAR COMPETENCIA</button>
+                <p className="text-slate-500 text-sm font-medium">Configure los criterios de evaluaci├│n y sus pesos porcentuales.</p>
+                <button onClick={() => setEditingCriterion({ id: 'crit-' + Date.now(), title: '', category: 'NUEVA CATEGOR├ìA', section: FormStep.General, weight: 0, levels: [{ label: 'EXCELENTE', points: 0, description: '' }] })} className="bg-emerald-500 text-white px-8 py-4 rounded-3xl font-black uppercase text-xs flex items-center tracking-widest hover:bg-emerald-600 shadow-xl transition-all active:scale-95"><Plus size={18} className="mr-3" /> AGREGAR COMPETENCIA</button>
               </div>
               <div className="grid gap-4">
                 {report.rubric.map(crit => (
@@ -2720,12 +2011,12 @@ const App: React.FC = () => {
             <h3 className="text-3xl font-black text-[#004b87] uppercase tracking-tighter flex items-center"><Edit3 className="mr-4" /> EDITAR COMPETENCIA</h3>
             <div className="grid grid-cols-2 gap-8">
               <div className="space-y-4">
-                <Input label="Título de la Competencia" value={editingCriterion.title} onChange={v => setEditingCriterion({ ...editingCriterion, title: v })} />
-                <Input label="Categoría Académica" value={editingCriterion.category} onChange={v => setEditingCriterion({ ...editingCriterion, category: v })} />
+                <Input label="T├¡tulo de la Competencia" value={editingCriterion.title} onChange={v => setEditingCriterion({ ...editingCriterion, title: v })} />
+                <Input label="Categor├¡a Acad├®mica" value={editingCriterion.category} onChange={v => setEditingCriterion({ ...editingCriterion, category: v })} />
               </div>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase ml-4 tracking-[0.2em]">Asociar a Sección</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase ml-4 tracking-[0.2em]">Asociar a Secci├│n</label>
                   <select
                     className="w-full p-5 rounded-[2.5rem] border-4 border-slate-50 shadow-lg bg-slate-50 font-black text-xs uppercase text-[#004b87] outline-none"
                     value={editingCriterion.section}
@@ -2740,7 +2031,7 @@ const App: React.FC = () => {
 
             <div className="space-y-4">
               <div className="flex justify-between items-center border-b-2 border-slate-100 pb-3">
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Niveles de Desempeño</label>
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Niveles de Desempe├▒o</label>
                 <button onClick={() => setEditingCriterion({ ...editingCriterion, levels: [...editingCriterion.levels, { label: 'NUEVO NIVEL', points: 0, description: '' }] })} className="bg-[#004b87] text-white px-5 py-2 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:scale-105 transition-all flex items-center"><Plus size={12} className="mr-2" /> AGREGAR NIVEL</button>
               </div>
               <div className="space-y-3 max-h-[300px] overflow-y-auto pr-4 custom-scrollbar">
@@ -2755,7 +2046,7 @@ const App: React.FC = () => {
                       <input type="number" step="0.01" className="w-24 p-3 bg-white rounded-xl border-none text-[10px] font-black shadow-sm" value={level.points} onChange={e => { const nl = [...editingCriterion.levels]; nl[lIdx].points = parseFloat(e.target.value) || 0; setEditingCriterion({ ...editingCriterion, levels: nl }); }} />
                     </div>
                     <div className="space-y-1 flex-1">
-                      <label className="text-[8px] font-black uppercase text-slate-400 ml-2">Descripción del Logro</label>
+                      <label className="text-[8px] font-black uppercase text-slate-400 ml-2">Descripci├│n del Logro</label>
                       <textarea className="w-full p-3 bg-white rounded-xl border-none text-[10px] font-medium shadow-sm resize-none" rows={2} value={level.description} onChange={e => { const nl = [...editingCriterion.levels]; nl[lIdx].description = e.target.value; setEditingCriterion({ ...editingCriterion, levels: nl }); }} />
                     </div>
                     <button onClick={() => { const nl = editingCriterion.levels.filter((_, idx) => idx !== lIdx); setEditingCriterion({ ...editingCriterion, levels: nl }); }} className="mt-6 text-red-200 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
@@ -2783,11 +2074,11 @@ const App: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-6">
-                <Input label="Nombre del Ítem" value={editingMaterial.item} onChange={v => setEditingMaterial({ ...editingMaterial, item: v })} />
+                <Input label="Nombre del ├ìtem" value={editingMaterial.item} onChange={v => setEditingMaterial({ ...editingMaterial, item: v })} />
                 <div className="grid grid-cols-2 gap-4">
                   <InputMini label="Cantidad" value={editingMaterial.qty} onChange={v => setEditingMaterial({ ...editingMaterial, qty: v })} />
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-3 tracking-[0.1em]">Categoría</label>
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-3 tracking-[0.1em]">Categor├¡a</label>
                     <select className="w-full p-4 rounded-[1.5rem] border-2 border-slate-50 shadow-inner bg-slate-50/50 text-xs font-black outline-none focus:bg-white focus:ring-4 focus:ring-blue-100 text-[#004b87]"
                       value={editingMaterial.category} onChange={e => setEditingMaterial({ ...editingMaterial, category: e.target.value as any })}>
                       <option value="LABORATORY">LABORATORIO</option>
@@ -2812,8 +2103,8 @@ const App: React.FC = () => {
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase ml-4 tracking-[0.2em]">Descripción Breve</label>
-              <textarea className="w-full p-5 rounded-[2rem] border-2 border-slate-50 bg-slate-50/50 text-xs font-medium focus:bg-white focus:ring-4 focus:ring-blue-100 outline-none resize-none" rows={3} placeholder="Ej: Precisión 0.05mm" value={editingMaterial.description || ''} onChange={e => setEditingMaterial({ ...editingMaterial, description: e.target.value })} />
+              <label className="text-[10px] font-black text-slate-400 uppercase ml-4 tracking-[0.2em]">Descripci├│n Breve</label>
+              <textarea className="w-full p-5 rounded-[2rem] border-2 border-slate-50 bg-slate-50/50 text-xs font-medium focus:bg-white focus:ring-4 focus:ring-blue-100 outline-none resize-none" rows={3} placeholder="Ej: Precisi├│n 0.05mm" value={editingMaterial.description || ''} onChange={e => setEditingMaterial({ ...editingMaterial, description: e.target.value })} />
             </div>
 
             <div className="flex justify-end gap-4 pt-4 border-t border-slate-50">
@@ -2914,7 +2205,7 @@ const App: React.FC = () => {
                       <button
                         onClick={(e) => { e.stopPropagation(); setCurrentStep(s.id); setEditingCriterion(criterion); }}
                         className="p-1.5 rounded-lg bg-blue-500/10 text-[#004b87] hover:bg-[#004b87] hover:text-white transition-all shadow-sm opacity-60 hover:opacity-100 border border-blue-200"
-                        title="Editar definición"
+                        title="Editar definici├│n"
                       >
                         <Settings size={12} />
                       </button>
@@ -2937,17 +2228,17 @@ const App: React.FC = () => {
               onClick={() => setIsManagingRubric(true)}
               className="w-full bg-white border-4 border-dashed border-slate-100 p-6 rounded-[3.5rem] font-black uppercase text-[10px] tracking-widest flex items-center justify-center text-slate-400 hover:text-[#004b87] hover:border-[#004b87]/30 transition-all shadow-sm group"
             >
-              <Settings2 size={18} className="mr-3 group-hover:rotate-90 transition-transform" /> GESTIONAR RÚBRICA
+              <Settings2 size={18} className="mr-3 group-hover:rotate-90 transition-transform" /> GESTIONAR R├ÜBRICA
             </button>
           )}
 
           <div className="bg-[#9e1b32] p-8 rounded-[4rem] text-white shadow-2xl mt-12 relative overflow-hidden border-b-8 border-black/20">
             <div className="absolute top-[-20px] right-[-20px] opacity-10 rotate-12"><Calculator size={140} /></div>
-            <p className="text-[10px] font-black uppercase mb-3 tracking-[0.3em] opacity-60 font-mono">Análisis de Datos</p>
+            <p className="text-[10px] font-black uppercase mb-3 tracking-[0.3em] opacity-60 font-mono">An├ílisis de Datos</p>
             <p className="text-[11px] font-medium leading-relaxed relative z-10">
-              El ajuste por <strong>mínimos cuadrados</strong> permite encontrar la relación matemática óptima entre variables, reduciendo el error estadístico.
+              El ajuste por <strong>m├¡nimos cuadrados</strong> permite encontrar la relaci├│n matem├ítica ├│ptima entre variables, reduciendo el error estad├¡stico.
               <br /><br />
-              Aunque este módulo se enfoca en regresión lineal, puedes usar <strong>Desmos</strong> para cualquier modelo no lineal e importar la gráfica directamente.
+              Aunque este m├│dulo se enfoca en regresi├│n lineal, puedes usar <strong>Desmos</strong> para cualquier modelo no lineal e importar la gr├ífica directamente.
             </p>
           </div>
         </aside>
@@ -2972,6 +2263,408 @@ const App: React.FC = () => {
   );
 };
 
+const VarConfig = ({ title, config, onChange, reps, onRepsChange }: any) => (
+  <div className="space-y-6">
+    <h4 className="text-[10px] font-black text-[#004b87] uppercase tracking-[0.2em] border-b-2 border-[#9e1b32] pb-3 flex items-center"><Layers size={18} className="mr-3 text-[#9e1b32]" /> {title}</h4>
+    <div className="grid grid-cols-6 gap-5">
+      <div className="col-span-2">
+        <InputMini label="Nombre de Variable" value={config.name} onChange={v => onChange({ ...config, name: v })} />
+      </div>
+      <div className="col-span-1">
+        <InputMini label="S├¡mbolo" value={config.symbol || (title.includes('Independiente') ? 'x' : 'y')} onChange={v => onChange({ ...config, symbol: v })} />
+      </div>
+      <div className="col-span-1">
+        <InputMini label="Unidad" value={config.unit} onChange={v => onChange({ ...config, unit: v })} />
+      </div>
+      <div className="col-span-1">
+        <SmartNumberInput label="Factor" value={config.multiplier} onChange={(v: number) => onChange({ ...config, multiplier: v || 1 })} />
+      </div>
+      <div className="col-span-1">
+        <SmartNumberInput label="Incertidumbre ╬ö" value={config.uncertainty} onChange={(v: number) => onChange({ ...config, uncertainty: v || 0 })} />
+      </div>
+    </div>
+    <div className="flex items-center space-x-4 bg-slate-50 p-4 rounded-3xl border border-slate-100 shadow-inner">
+      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Repeticiones:</span>
+      <div className="flex items-center space-x-3">
+        <button onClick={() => onRepsChange(Math.max(1, reps - 1))} className="text-slate-300 hover:text-red-500 transition-colors"><MinusCircle size={18} /></button>
+        <input type="number" min="1" max="10" className="w-16 p-2 rounded-xl border-2 border-slate-100 text-center font-black text-[#004b87] focus:ring-4 focus:ring-blue-100 outline-none transition-all" value={reps} onChange={e => onRepsChange(parseInt(e.target.value) || 1)} />
+        <button onClick={() => onRepsChange(Math.min(10, reps + 1))} className="text-slate-300 hover:text-green-500 transition-colors"><PlusCircle size={18} /></button>
+      </div>
+    </div>
+  </div>
+);
 
+const EstimationPanel = ({ series }: { series: DataSeries }) => {
+  const regressionData = getRegressionData(series);
+  const stats = calculateStats(regressionData);
+  if (!stats) return null;
+
+  const fmtM = formatMeasure(stats.m, stats.sigmaM);
+  const fmtB = formatMeasure(stats.b, stats.sigmaB);
+
+  const toLatexSci = (num: number) => {
+    if (Math.abs(num) < 0.01 || Math.abs(num) >= 10000) {
+      const exp = num.toExponential(4);
+      const [m, e] = exp.split('e');
+      return `${m} \\times 10^{${parseInt(e)}}`;
+    }
+    return num.toFixed(4);
+  };
+
+  const FormulaItem = ({ formula, value, displayStyle = "small" }: { formula: string, value: string | number, displayStyle?: "small" | "medium" | "large" }) => (
+    <div className="flex items-center space-x-4">
+      <div className={`overflow-x-auto ${displayStyle === 'large' ? 'min-w-[150px]' : displayStyle === 'medium' ? 'min-w-[120px]' : 'min-w-[80px]'}`}>
+        <div className="text-blue-900/90 font-medium whitespace-nowrap" dangerouslySetInnerHTML={{ __html: renderMathOnly(`$${formula}$`) }} />
+      </div>
+      <div className="bg-white border-2 border-slate-200 px-4 py-2.5 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] text-[#004b87] font-mono font-black text-[12px] min-w-[140px] text-center">
+        {value}
+      </div>
+    </div>
+  );
+
+  const SubstitutionCard = ({ title, formula, sub, result }: { title: string, formula: string, sub: string, result: string }) => (
+    <div className="bg-white p-6 rounded-[2.5rem] border-2 border-slate-100 shadow-sm space-y-3 group hover:border-[#004b87]/20 transition-all">
+      <div className="flex justify-between items-center border-b border-slate-50 pb-2">
+        <span className="text-[9px] font-black text-[#004b87] uppercase tracking-widest">{title}</span>
+        <span className="text-[10px] font-mono font-black text-[#9e1b32]">{result}</span>
+      </div>
+      <div className="space-y-2">
+        <div className="text-xs text-slate-400 font-medium" dangerouslySetInnerHTML={{ __html: renderMathOnly(`$${formula}$`) }} />
+        <div className="text-[10px] text-[#004b87] font-mono whitespace-normal leading-relaxed opacity-0 group-hover:opacity-100 transition-opacity" dangerouslySetInnerHTML={{ __html: renderMathOnly(`$\\approx ${sub}$`) }} />
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="bg-white rounded-[3rem] shadow-2xl border-4 border-[#004b87] overflow-hidden mb-16 relative">
+      <div className="bg-[#004b87] px-12 py-5 flex justify-between items-center border-b-4 border-[#9e1b32]">
+        <h3 className="text-white font-black uppercase text-[11px] tracking-[0.3em] flex items-center">
+          <Calculator size={20} className="mr-4 text-blue-300" /> AJUSTE DE CURVA (M├ìNIMOS CUADRADOS)
+        </h3>
+        <div className="bg-[#9e1b32] text-white text-[10px] px-5 py-2 rounded-full font-black shadow-xl tracking-widest border-b-2 border-black/20">N = {stats.n}</div>
+      </div>
+
+      <div className="p-16 grid-bg bg-white relative">
+        <div className="grid grid-cols-12 gap-y-10 items-start">
+          <div className="col-span-4 space-y-6">
+            <FormulaItem formula="n =" value={stats.n} />
+            <FormulaItem formula={"\\sum_{i=1}^n x_i ="} value={stats.sumX.toExponential(4)} />
+            <FormulaItem formula={"\\sum_{i=1}^n y_i ="} value={stats.sumY.toExponential(4)} />
+            <FormulaItem formula={"\\sum_{i=1}^n x_i^2 ="} value={stats.sumX2.toExponential(4)} />
+            <FormulaItem formula={"\\sum_{i=1}^n x_iy_i ="} value={stats.sumXY.toExponential(4)} />
+            <FormulaItem formula={"\\Delta = n \\sum x_i^2 - (\\sum x_i)^2 ="} value={stats.delta.toExponential(4)} displayStyle="large" />
+          </div>
+
+          <div className="col-span-8 space-y-8 pl-10 border-l-4 border-slate-100">
+            <div className="grid grid-cols-2 gap-x-12 gap-y-6">
+              <FormulaItem formula="M =" value={fmtM.val} displayStyle="medium" />
+              <FormulaItem formula={"\\sigma_M ="} value={fmtM.unc} displayStyle="medium" />
+              <FormulaItem formula="B =" value={fmtB.val} displayStyle="medium" />
+              <FormulaItem formula={"\\sigma_B ="} value={fmtB.unc} displayStyle="medium" />
+              <FormulaItem formula={"\\sigma_y ="} value={stats.sigmaY.toExponential(4)} displayStyle="medium" />
+              <FormulaItem formula="r^2 =" value={stats.r2.toFixed(6)} displayStyle="medium" />
+            </div>
+
+            <div className="mt-10 pt-10 border-t-2 border-slate-100 text-center">
+              <div className="inline-block px-10 py-2 bg-slate-100 rounded-full text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] mb-6 border-2 border-slate-200">Modelo Matem├ítico Resultante</div>
+              <div className="bg-blue-50/50 p-8 rounded-[3.5rem] border-4 border-blue-100/50 font-mono text-[#004b87] font-black text-3xl shadow-2xl backdrop-blur-md inline-block min-w-[500px]">
+                <div dangerouslySetInnerHTML={{ __html: renderMathOnly(`$y = (${fmtM.val} \\pm ${fmtM.unc})x + (${fmtB.val} \\pm ${fmtB.unc})$`) }} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-16 pt-12 border-t-4 border-slate-50">
+          <div className="flex items-center space-x-4 mb-8">
+            <div className="h-px bg-slate-200 flex-1"></div>
+            <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em]">Desglose de Par├ímetros</span>
+            <div className="h-px bg-slate-200 flex-1"></div>
+          </div>
+          <div className="grid grid-cols-2 gap-6">
+            <SubstitutionCard
+              title="Pendiente (M)"
+              formula="M = \frac{n \sum xy - \sum x \sum y}{\Delta}"
+              sub={`\frac{${stats.n}(${toLatexSci(stats.sumXY)}) - (${toLatexSci(stats.sumX)})(${toLatexSci(stats.sumY)})}{${toLatexSci(stats.delta)}}`}
+              result={fmtM.val}
+            />
+            <SubstitutionCard
+              title="Intercepto (B)"
+              formula="B = \frac{\sum x^2 \sum y - \sum x \sum xy}{\Delta}"
+              sub={`\frac{(${toLatexSci(stats.sumX2)})(${toLatexSci(stats.sumY)}) - (${toLatexSci(stats.sumX)})(${toLatexSci(stats.sumXY)})}{${toLatexSci(stats.delta)}}`}
+              result={fmtB.val}
+            />
+            <SubstitutionCard
+              title="Error Pendiente (\sigma_M)"
+              formula="\sigma_M = \sigma_y \sqrt{\frac{n}{\Delta}}"
+              sub={` ${toLatexSci(stats.sigmaY)} \sqrt{\frac{${stats.n}}{${toLatexSci(stats.delta)}}}`}
+              result={fmtM.unc}
+            />
+            <SubstitutionCard
+              title="Error Intercepto (\sigma_B)"
+              formula="\sigma_B = \sigma_y \sqrt{\frac{\sum x^2}{\Delta}}"
+              sub={` ${toLatexSci(stats.sigmaY)} \sqrt{\frac{${toLatexSci(stats.sumX2)}}{${toLatexSci(stats.delta)}}}`}
+              result={fmtB.unc}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const SmartNumberInput = ({ value, onChange, ...props }: any) => {
+  const [str, setStr] = useState(value?.toString() || '');
+  useEffect(() => {
+    const currentParsed = parseNum(str);
+    if (typeof value === 'number' && !isNaN(value) && Math.abs(value - currentParsed) > 1e-9) {
+      setStr(value.toString());
+    }
+  }, [value]);
+  const handleChange = (val: string) => {
+    setStr(val);
+    const num = parseNum(val);
+    if (!isNaN(num)) { onChange(num); }
+  };
+  return <InputMini {...props} value={str} onChange={handleChange} />;
+};
+
+const InputMini = ({ label, value, onChange, type = "text", ...props }: any) => (
+  <div className="space-y-1">
+    <label className="text-[9px] font-black text-slate-400 uppercase ml-3 tracking-[0.1em]">{label}</label>
+    <input type={type} step="any" className="w-full p-4 rounded-[1.5rem] border-2 border-slate-50 shadow-inner bg-slate-50/50 text-xs font-black outline-none focus:bg-white focus:ring-4 focus:ring-blue-100 transition-all text-[#004b87]" value={value} onChange={e => onChange(e.target.value)} {...props} />
+  </div>
+);
+
+const Input = ({ label, value, onChange, type = "text" }: any) => (
+  <div className="space-y-2">
+    <label className="text-[10px] font-black text-slate-400 uppercase ml-4 tracking-[0.2em]">{label}</label>
+    <input type={type} className="w-full p-5 rounded-[2.5rem] border-4 border-slate-50 shadow-lg bg-slate-50/50 text-sm font-black outline-none transition-all focus:bg-white focus:ring-8 focus:ring-blue-500/5 text-[#004b87]" value={value} onChange={e => onChange(e.target.value)} />
+  </div>
+);
+
+const StepHeader = ({ title, icon, criterion, isDocente, onEdit, onEvaluate, isEvaluated }: any) => (
+  <div className="flex items-center justify-between mb-8 border-b-4 border-[#004b87]/10 pb-4">
+    <div className="flex items-center gap-4">
+      <div className="p-3 bg-[#004b87] text-white rounded-2xl shadow-lg">{icon}</div>
+      <h2 className="text-2xl font-black text-[#004b87] uppercase tracking-tighter">{title}</h2>
+    </div>
+    {isDocente && criterion && (
+      <div className="flex gap-2">
+        <button
+          onClick={(e) => { e.stopPropagation(); onEdit(criterion); }}
+          className="p-2 rounded-xl bg-blue-50 text-[#004b87] hover:bg-[#004b87] hover:text-white transition-all shadow-sm group"
+          title="Editar definici├│n"
+        >
+          <Settings size={18} className="group-hover:rotate-90 transition-transform" />
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onEvaluate(criterion); }}
+          className={`p-2 rounded-xl transition-all shadow-md flex items-center gap-2 px-4 ${isEvaluated ? 'bg-emerald-500 text-white' : 'bg-white text-slate-300 hover:text-[#004b87] ring-2 ring-slate-100 hover:ring-[#004b87]/20'}`}
+          title="Evaluar"
+        >
+          <Star size={18} fill={isEvaluated ? "currentColor" : "none"} />
+          <span className="text-[10px] font-black uppercase tracking-widest">{isEvaluated ? 'Evaluado' : 'Evaluar'}</span>
+        </button>
+      </div>
+    )}
+  </div>
+);
+
+const Section = ({ title, value, onChange, rows = 4, help, report, updateReport }: any) => {
+  const previewRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (previewRef.current) previewRef.current.innerHTML = renderLatexToHtml(value, report?.images) || '<span class="text-slate-100 italic font-black uppercase tracking-[0.3em] text-[10px]">Esperando entrada...</span>';
+  }, [value, report?.images]);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && textareaRef.current) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const base64 = ev.target?.result as string;
+        const imgId = `fig-${Date.now()}`;
+
+        // Ask for metadata
+        const caption = prompt("Ingrese el pie de foto (Caption):") || "";
+        const label = prompt("Ingrese la etiqueta (Label), ej: fig:montaje:") || imgId;
+
+        // Update images dictionary at App level
+        updateReport({ images: { ...(report?.images || INITIAL_REPORT.images), [imgId]: base64 } });
+
+        const latexBlock = `\n\\begin{figure}[h!t]\n  \\includegraphics[width=0.8\\linewidth]{${imgId}}\n  \\caption{${caption}}\n  \\label{${label}}\n\\end{figure}\n`;
+
+        const start = textareaRef.current!.selectionStart;
+        const end = textareaRef.current!.selectionEnd;
+        const newValue = value.substring(0, start) + latexBlock + value.substring(end);
+        onChange(newValue);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  return (
+    <div className="space-y-8 flex-1">
+      <div className="flex justify-between items-center border-b-2 border-[#9e1b32] pb-3 ml-2">
+        <div className="flex items-center space-x-4">
+          <label className="text-[11px] font-black text-[#004b87] uppercase tracking-[0.25em]">{title}</label>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="p-2 bg-blue-50 text-[#004b87] hover:bg-[#004b87] hover:text-white rounded-xl transition-all shadow-sm group border border-blue-100"
+            title="Subir imagen"
+          >
+            <ImageIcon size={14} className="group-hover:scale-110 transition-transform" />
+          </button>
+          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
+        </div>
+        {help && <span className="text-[10px] text-emerald-600 font-black bg-emerald-50 px-5 py-2 rounded-full uppercase tracking-tighter shadow-sm border border-emerald-100">{help}</span>}
+      </div>
+      <div className="grid grid-cols-2 gap-12">
+        <textarea
+          ref={textareaRef}
+          className="w-full p-12 border-none rounded-[4rem] bg-slate-50 shadow-inner font-mono text-xs focus:bg-white outline-none ring-8 ring-slate-100/30 transition-all text-slate-700 leading-relaxed"
+          rows={rows}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder="Escriba aqu├¡..."
+        />
+        <div ref={previewRef} className="p-16 border-4 border-[#004b87]/5 rounded-[4rem] bg-white text-[14px] leading-[1.8] latex-content overflow-auto min-h-[200px] grid-bg shadow-xl relative custom-scrollbar" />
+      </div>
+    </div>
+  );
+};
+
+const renderLatexToHtml = (text: string, images: Record<string, string> = {}) => {
+  if (!text) return '';
+  let p = text.replace(/\\\\/g, '<br/>');
+
+  // Figure environment: \begin{figure} ... \includegraphics{...} \caption{...} \label{...} \end\{figure\}
+  p = p.replace(/\\begin\s*(?:\[.*?\])?\s*\{figure\}\s*(?:\[.*?\])?([\s\S]*?)\\end\{figure\}/g, (_, content) => {
+    const captionMatch = content.match(/\\caption\s*\{([\s\S]*?)\}/);
+    const labelMatch = content.match(/\\label\s*\{([\s\S]*?)\}/);
+    const imgMatch = content.match(/\\includegraphics\s*(?:\[(.*?)\])?\s*\{([\s\S]*?)\}/);
+
+    const caption = captionMatch ? captionMatch[1] : '';
+    const label = labelMatch ? labelMatch[1] : '';
+    const options = imgMatch ? (imgMatch[1] || '') : '';
+    const imgSrc = imgMatch ? (imgMatch[2] || '') : '';
+    const finalSrc = images[imgSrc] || imgSrc;
+
+    let imgStyle = "max-width: 100%; max-height: 9cm; object-fit: contain; border-radius: 1rem;";
+    if (options) {
+      const widthMatch = options.match(/width\s*=\s*([\d.]+)\s*(\\linewidth|\\textwidth|cm|mm|px|%|in|pt)?/);
+      if (widthMatch) {
+        const val = widthMatch[1];
+        const unit = widthMatch[2] || '';
+        if (unit === '\\linewidth' || unit === '\\textwidth') {
+          imgStyle = `width: ${parseFloat(val) * 100}%; max-height: 9cm; object-fit: contain; border-radius: 1rem;`;
+        } else if (unit) {
+          imgStyle = `width: ${val + unit}; max-height: 9cm; object-fit: contain; border-radius: 1rem;`;
+        } else if (val.includes('%') || val.includes('px')) {
+          imgStyle = `width: ${val}; max-height: 9cm; object-fit: contain; border-radius: 1rem;`;
+        }
+      }
+    }
+
+    return `
+      <div class="my-10 flex flex-col items-center">
+        <div class="bg-white p-4 rounded-[2rem] shadow-xl border-2 border-slate-50 relative overflow-hidden flex justify-center">
+          <img src="${finalSrc}" alt="${caption}" style="${imgStyle}" />
+        </div>
+        ${caption ? `<p class="mt-4 text-[11px] font-bold text-slate-500 text-center px-10 leading-relaxed uppercase tracking-widest"><span class="text-[#004b87] font-black">${label ? `Figura (${label}):` : 'Figura:'}</span> ${caption}</p>` : ''}
+      </div>
+    `;
+  });
+
+  p = p.replace(/\\begin\{enumerate\}([\s\S]*?)\\end\{enumerate\}/g, (_, c) => `<ol>${c.split('\\item').filter((i: any) => i.trim()).map((i: any) => `<li>${renderMathOnly(i.trim())}</li>`).join('')}</ol>`);
+  p = p.replace(/\\begin\{itemize\}([\s\S]*?)\\end\{itemize\}/g, (_, c) => `<ul>${c.split('\\item').filter((i: any) => i.trim()).map((i: any) => `<li>${renderMathOnly(i.trim())}</li>`).join('')}</ul>`);
+
+  // Image Markdown support (backwards compat)
+  p = p.replace(/!\[(.*?)\]\((.*?)\)/g, (_, alt, src) => {
+    const finalSrc = images[src] || src;
+    return `<div class="my-6 flex justify-center"><img src="${finalSrc}" alt="${alt}" style="max-width: 100%; max-height: 9cm; object-fit: contain; border-radius: 1rem; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);" /></div>`;
+  });
+
+  return renderMathOnly(p);
+};
+
+const renderMathOnly = (text: string) => text.replace(/\$([^$]+)\$/g, (_, f) => {
+  try {
+    return katex.renderToString(f, {
+      throwOnError: false,
+      displayMode: false,
+      strict: false,
+      trust: true
+    });
+  } catch (e) {
+    return f;
+  }
+});
+
+const RegressionTable = ({ series }: { series: DataSeries }) => {
+  const regressionData = getRegressionData(series);
+  const stats = calculateStats(regressionData);
+  if (!stats) return null;
+
+  const fmtM = formatMeasure(stats.m, stats.sigmaM);
+  const fmtB = formatMeasure(stats.b, stats.sigmaB);
+
+  return (
+    <div className="space-y-10">
+      <div className="flex items-center space-x-3 border-b-2 border-[#9e1b32] pb-3 ml-2">
+        <label className="text-[11px] font-black text-[#004b87] uppercase tracking-[0.25em]">DATOS PARA AN├üLISIS DE REGRESI├ôN</label>
+      </div>
+      <div className="overflow-hidden rounded-[4rem] border-4 border-[#004b87]/5 shadow-2xl bg-white p-2">
+        <table className="w-full text-[11px] border-collapse">
+          <thead className="bg-[#004b87] text-white font-black uppercase tracking-widest">
+            <tr>
+              <th className="p-6 border-r border-white/10">#</th>
+              <th className="p-6 border-r border-white/10" dangerouslySetInnerHTML={{ __html: renderLatexToHtml(`X (${series.varIndep.unit})`) }} />
+              <th className="p-6 border-r border-white/10" dangerouslySetInnerHTML={{ __html: renderLatexToHtml(`Y (${series.varDep.unit})`) }} />
+              <th className="p-6 border-r border-white/10">XY</th>
+              <th className="p-6">X┬▓</th>
+            </tr>
+          </thead>
+          <tbody>
+            {regressionData.map((row, i) => {
+              const formatSci = (num: number) => {
+                const str = num.toExponential(4);
+                const [base, exp] = str.split('e');
+                const cleanExp = exp ? parseInt(exp, 10) : 0;
+                return `${base} \\cdot 10^{${cleanExp}}`;
+              };
+              return (
+                <tr key={i} className="text-center font-black text-[#004b87] even:bg-slate-50/50 border-b last:border-0 hover:bg-blue-50 transition-colors">
+                  <td className="p-5 border-r border-slate-100 text-slate-400 font-bold">{row.n}</td>
+                  <td className="p-5 border-r border-slate-100" dangerouslySetInnerHTML={{ __html: renderMathOnly(`$${formatSci(row.x)}$`) }} />
+                  <td className="p-5 border-r border-slate-100" dangerouslySetInnerHTML={{ __html: renderMathOnly(`$${formatSci(row.y)}$`) }} />
+                  <td className="p-5 border-r border-slate-100" dangerouslySetInnerHTML={{ __html: renderMathOnly(`$${formatSci(row.xy)}$`) }} />
+                  <td className="p-5" dangerouslySetInnerHTML={{ __html: renderMathOnly(`$${formatSci(row.x2)}$`) }} />
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {stats && (
+        <div className="grid grid-cols-2 gap-8 pt-4">
+          <StatBox label={`PENDIENTE AJUSTADA (M)`} value={fmtM.val} sub={`Incertidumbre: ┬▒${fmtM.unc}`} color="text-[#9e1b32]" icon={<BarChart size={24} />} />
+          <StatBox label="BONDAD DE AJUSTE (R┬▓)" value={stats.r2.toFixed(6)} sub="Coeficiente de determinaci├│n" color="text-[#004b87]" icon={<LinkIcon size={24} />} />
+        </div>
+      )}
+    </div>
+  );
+};
+
+const StatBox = ({ label, value, sub, color, icon }: any) => (
+  <div className="p-10 bg-white border-4 border-slate-50 rounded-[3.5rem] shadow-xl relative group overflow-hidden">
+    <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:rotate-12 transition-transform">{icon}</div>
+    <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 border-b border-slate-50 pb-2 ml-1">{label}</div>
+    <div className={`text-4xl font-mono font-black tracking-tighter ${color || 'text-slate-900'}`}>{value}</div>
+    {sub && <div className="text-[10px] font-black text-slate-300 mt-4 uppercase tracking-widest bg-slate-50/50 inline-block px-4 py-1.5 rounded-full">{sub}</div>}
+  </div>
+);
 
 export default App;

@@ -1,0 +1,148 @@
+[
+    {
+        "id": "esp32-devkit-v1",
+        "name": "ESP32 DevKit V1",
+        "imageUrl": "https://raw.githubusercontent.com/playgotech/assets/main/esp32-devkit-v1-pinout.png",
+        "pins": [
+            {
+                "pin": 1,
+                "name": "3V3",
+                "type": "POWER",
+                "description": "3.3V Power Output"
+            },
+            {
+                "pin": 2,
+                "name": "GND",
+                "type": "POWER",
+                "description": "Ground"
+            },
+            {
+                "pin": 3,
+                "name": "D15",
+                "type": "GPIO",
+                "description": "GPIO 15, ADC2_CH3, Touch3, MTDO"
+            },
+            {
+                "pin": 4,
+                "name": "D2",
+                "type": "GPIO",
+                "description": "GPIO 2, ADC2_CH2, Touch2, Onboard LED"
+            },
+            {
+                "pin": 5,
+                "name": "D4",
+                "type": "GPIO",
+                "description": "GPIO 4, ADC2_CH0, Touch0"
+            },
+            {
+                "pin": 6,
+                "name": "RX2",
+                "type": "UART",
+                "description": "GPIO 16, RX2"
+            },
+            {
+                "pin": 7,
+                "name": "TX2",
+                "type": "UART",
+                "description": "GPIO 17, TX2"
+            },
+            {
+                "pin": 8,
+                "name": "D5",
+                "type": "GPIO",
+                "description": "GPIO 5, VSPICS0"
+            },
+            {
+                "pin": 9,
+                "name": "D18",
+                "type": "GPIO",
+                "description": "GPIO 18, VSPICLK"
+            },
+            {
+                "pin": 10,
+                "name": "D19",
+                "type": "GPIO",
+                "description": "GPIO 19, VSPIQ"
+            },
+            {
+                "pin": 11,
+                "name": "D21",
+                "type": "GPIO",
+                "description": "GPIO 21, I2C SDA"
+            },
+            {
+                "pin": 12,
+                "name": "RX0",
+                "type": "UART",
+                "description": "GPIO 3, RX0"
+            },
+            {
+                "pin": 13,
+                "name": "TX0",
+                "type": "UART",
+                "description": "GPIO 1, TX0"
+            },
+            {
+                "pin": 14,
+                "name": "D22",
+                "type": "GPIO",
+                "description": "GPIO 22, I2C SCL"
+            },
+            {
+                "pin": 15,
+                "name": "D23",
+                "type": "GPIO",
+                "description": "GPIO 23, VSPID"
+            },
+            {
+                "pin": 30,
+                "name": "VIN",
+                "type": "POWER",
+                "description": "Input Voltage (5V-12V)"
+            }
+        ]
+    },
+    {
+        "id": "arduino-uno",
+        "name": "Arduino Uno R3",
+        "imageUrl": "https://raw.githubusercontent.com/playgotech/assets/main/arduino-uno-pinout.png",
+        "pins": [
+            {
+                "pin": 0,
+                "name": "RX",
+                "type": "UART",
+                "description": "Serial Receive (RX)"
+            },
+            {
+                "pin": 1,
+                "name": "TX",
+                "type": "UART",
+                "description": "Serial Transmit (TX)"
+            },
+            {
+                "pin": 13,
+                "name": "D13",
+                "type": "GPIO",
+                "description": "Digital Pin 13, Built-in LED"
+            },
+            {
+                "pin": "A0",
+                "name": "A0",
+                "type": "ADC",
+                "description": "Analog Input 0"
+            },
+            {
+                "pin": "5V",
+                "name": "5V",
+                "type": "POWER",
+                "description": "5V Power Output"
+            },
+            {
+                "pin": "GND",
+                "name": "GND",
+                "type": "POWER",
+                "description": "Ground"
+            }
+        ]
+    }
+]
