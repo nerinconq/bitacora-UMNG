@@ -734,11 +734,7 @@ const Input = ({ label, value, onChange, type = "text" }: any) => (
 );
 
 const StepHeader = ({ title, icon, criterion, isDocente, onEdit, onEvaluate, isEvaluated }: any) => (
-  <div className="flex items-center justify-between mb-8 border-b-4 border-[#004b87]/10 pb-4">
-    <div className="flex items-center gap-4">
-      <div className="p-3 bg-[#004b87] text-white rounded-2xl shadow-lg">{icon}</div>
-      <h2 className="text-2xl font-black text-[#004b87] uppercase tracking-tighter">{title}</h2>
-    </div>
+  <div className="flex items-center justify-end mb-8 border-b-4 border-[#004b87]/10 pb-4 min-h-[50px]">
     {isDocente && criterion && (
       <div className="flex gap-2">
         <button
@@ -800,7 +796,7 @@ const Section = ({ title, value, onChange, rows = 4, help, report, updateReport 
     <div className="space-y-8 flex-1">
       <div className="flex justify-between items-center border-b-2 border-[#9e1b32] pb-3 ml-2">
         <div className="flex items-center space-x-4">
-          <label className="text-[11px] font-black text-[#004b87] uppercase tracking-[0.25em]">{title}</label>
+          <label className="text-xl font-black text-[#004b87] uppercase tracking-[0.15em]">{title}</label>
           <button
             onClick={() => fileInputRef.current?.click()}
             className="p-2 bg-blue-50 text-[#004b87] hover:bg-[#004b87] hover:text-white rounded-xl transition-all shadow-sm group border border-blue-100"
@@ -850,11 +846,15 @@ const renderLatexToHtml = (text: string, images: Record<string, string> = {}) =>
         const val = widthMatch[1];
         const unit = widthMatch[2] || '';
         if (unit === '\\linewidth' || unit === '\\textwidth') {
-          imgStyle = `width: ${parseFloat(val) * 100}%; max-height: 9cm; object-fit: contain; border-radius: 1rem;`;
+          // Force width to be exact percentage of container
+          imgStyle = `width: ${parseFloat(val) * 100}%; max-width: none; height: auto; border-radius: 1rem;`;
         } else if (unit) {
-          imgStyle = `width: ${val + unit}; max-height: 9cm; object-fit: contain; border-radius: 1rem;`;
-        } else if (val.includes('%') || val.includes('px')) {
-          imgStyle = `width: ${val}; max-height: 9cm; object-fit: contain; border-radius: 1rem;`;
+          imgStyle = `width: ${val + unit}; max-width: 100%; height: auto; border-radius: 1rem;`;
+        } else if (val.includes('%')) {
+          imgStyle = `width: ${val}; max-width: none; height: auto; border-radius: 1rem;`;
+        } else {
+          // Default to px if no unit
+          imgStyle = `width: ${val}px; max-width: 100%; height: auto; border-radius: 1rem;`;
         }
       }
     }
@@ -905,7 +905,7 @@ const RegressionTable = ({ series }: { series: DataSeries }) => {
   return (
     <div className="space-y-10">
       <div className="flex items-center space-x-3 border-b-2 border-[#9e1b32] pb-3 ml-2">
-        <label className="text-[11px] font-black text-[#004b87] uppercase tracking-[0.25em]">DATOS PARA ANÁLISIS DE REGRESIÓN</label>
+        <label className="text-xl font-black text-[#004b87] uppercase tracking-[0.25em]">DATOS PARA ANÁLISIS DE REGRESIÓN</label>
       </div>
       <div className="overflow-hidden rounded-[4rem] border-4 border-[#004b87]/5 shadow-2xl bg-white p-2">
         <table className="w-full text-[11px] border-collapse">
@@ -1396,8 +1396,8 @@ const App: React.FC = () => {
     const pageBottomLimit = pageHeight - 15;
 
     try {
-      const addSafeImage = async (data: string | undefined, x: number, y: number, w: number, h: number): Promise<boolean> => {
-        if (!data) return false;
+      const addSafeImage = async (data: string | undefined, x: number, y: number, w: number, h: number): Promise<number> => {
+        if (!data) return 0;
         try {
           let finalData = data;
           if (!data.startsWith('data:')) {
@@ -1405,21 +1405,41 @@ const App: React.FC = () => {
               finalData = await imageToBase64(data);
             } catch (e) {
               console.warn('Skipping image due to load error:', data, e);
-              return false;
+              return 0;
             }
           }
           // Validate format before adding
           if (!finalData.match(/^data:image\/(png|jpeg|jpg);base64,/)) {
             console.warn('Skipping invalid image format:', finalData.substring(0, 50));
-            return false;
+            return 0;
           }
+
           let format = 'PNG';
           if (finalData.startsWith('data:image/jpeg')) format = 'JPEG';
-          doc.addImage(finalData, format, x, y, w, h, undefined, 'FAST');
-          return true;
+
+          // Load image to get true dimensions for aspect ratio
+          const imgProps = await new Promise<{ width: number, height: number }>((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve({ width: img.width, height: img.height });
+            img.onerror = reject;
+            img.src = finalData;
+          });
+
+          const ratio = imgProps.width / imgProps.height;
+          // We have a target box w x h. We want to fit inside this box preserving aspect ratio.
+          // However, for appendices, we explicitly passed w = 130*scale, h = 80*scale.
+          // The user complains about Y compression. 
+          // If we prioritize width:
+          const calculatedH = w / ratio;
+
+          // If calculated height exceeds our max h (if we want to limit), we scale down.
+          // But here, let's prioritize aspect ratio based on width, as 130mm is our column constraint.
+
+          doc.addImage(finalData, format, x, y, w, calculatedH, undefined, 'FAST');
+          return calculatedH;
         } catch (e) {
           console.error('Error adding image to PDF:', e);
-          return false;
+          return 0; // Return 0 height on error
         }
       };
 
@@ -1465,11 +1485,19 @@ const App: React.FC = () => {
         if (chunks.length === 0) return y;
 
         // 2. Encabezado de sección
-        if (y + 25 > pageBottomLimit) {
-          doc.addPage();
-          y = 20;
+        let currentY = y;
+        if (title) {
+          if (y + 25 > pageBottomLimit) {
+            doc.addPage();
+            y = 20;
+          }
+          currentY = drawSectionHeader(title, y);
+        } else {
+          if (y + 10 > pageBottomLimit) { // Check space for text start
+            doc.addPage();
+            currentY = 20;
+          }
         }
-        let currentY = drawSectionHeader(title, y);
 
         // 3. Procesar fragmentos con saltos de página inteligentes
         for (const chunk of chunks) {
@@ -1506,8 +1534,8 @@ const App: React.FC = () => {
       currentY = await addBoxedSec('MONTAJE EXPERIMENTAL', report.montajeText, currentY);
       if (report.setupImageUrl) {
         if (currentY + 65 > pageBottomLimit) { doc.addPage(); currentY = 20; }
-        await addSafeImage(report.setupImageUrl, margin + 30, currentY, 130, 60);
-        currentY += 70;
+        const h = await addSafeImage(report.setupImageUrl, margin, currentY, 120, 0);
+        currentY += h + 10;
       }
 
       // Materiales
@@ -1527,7 +1555,7 @@ const App: React.FC = () => {
               ${items.map(m => `<tr>
                 <td style="padding: 4px 8px; border: 1px solid #e2e8f0;">
                     <div style="font-weight: bold; color: #004b87; margin-bottom: 2px;">${m.item}</div>
-                    ${m.description ? `<div style="font-size: 8px; color: #64748b; line-height: 1.2; font-style: italic;">${m.description}</div>` : ''}
+                    ${(showMatDesc && m.description) ? `<div style="font-size: 8px; color: #64748b; line-height: 1.2; font-style: italic;">${m.description}</div>` : ''}
                 </td>
                 <td style="padding: 4px 8px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: #475569;">${m.qty}</td>
               </tr>`).join('')}
@@ -1720,6 +1748,11 @@ const App: React.FC = () => {
           if (currentY + 40 > pageBottomLimit) { doc.addPage(); currentY = 20; }
           currentY = drawSectionHeader('APÉNDICE A: CÓDIGO / PSEUDOCÓDIGO', currentY);
 
+          if (report.appendices.codeDescription) {
+            currentY = await addBoxedSec('', report.appendices.codeDescription, currentY);
+            currentY += 5;
+          }
+
 
           // Determine language for highlighting
           const currentBoard = (report.appendices.selectedBoard || 'arduino').toLowerCase();
@@ -1760,8 +1793,8 @@ const App: React.FC = () => {
 
           const codeCapture = await captureSectionBox(codeHtml, pageWidth - 2 * margin);
           if (codeCapture) {
-            await addSafeImage(codeCapture.data, margin, currentY, pageWidth - 2 * margin, codeCapture.height);
-            currentY += codeCapture.height + 10;
+            const h = await addSafeImage(codeCapture.data, margin, currentY, pageWidth - 2 * margin, codeCapture.height);
+            currentY += h + 10;
           }
         }
 
@@ -1769,8 +1802,15 @@ const App: React.FC = () => {
         if (report.appendices.cirkitSchematicImage) {
           if (currentY + 100 > pageBottomLimit) { doc.addPage(); currentY = 20; }
           currentY = drawSectionHeader('APÉNDICE B: ESQUEMÁTICO DEL CIRCUITO', currentY);
-          await addSafeImage(report.appendices.cirkitSchematicImage, margin + 10, currentY, 130, 80);
-          currentY += 90;
+
+          if (report.appendices.schematicDescription) {
+            currentY = await addBoxedSec('', report.appendices.schematicDescription, currentY);
+            currentY += 5;
+          }
+
+          const schemScale = (report.appendices.schematicScale || 100) / 100;
+          const h = await addSafeImage(report.appendices.cirkitSchematicImage, margin + 10, currentY, 130 * schemScale, 80 * schemScale);
+          currentY += (h + 10);
         }
 
         // APÉNDICE C: CONFIGURACIÓN DE PINES
@@ -1778,14 +1818,20 @@ const App: React.FC = () => {
           if (currentY + 100 > pageBottomLimit) { doc.addPage(); currentY = 20; }
           currentY = drawSectionHeader('APÉNDICE C: CONFIGURACIÓN DE PINES', currentY);
 
-          await addSafeImage(report.appendices.pinoutBoardImage, margin + 10, currentY, 130, 80);
+          if (report.appendices.pinoutDescription) {
+            currentY = await addBoxedSec('', report.appendices.pinoutDescription, currentY);
+            currentY += 5;
+          }
+
+          const pinScale = (report.appendices.pinoutScale || 100) / 100;
+          const h = await addSafeImage(report.appendices.pinoutBoardImage, margin + 10, currentY, 130 * pinScale, 80 * pinScale);
 
           if (report.appendices.pinoutBoardName) {
             doc.setFontSize(9);
             doc.setTextColor(100, 100, 100);
-            doc.text(`Placa: ${report.appendices.pinoutBoardName}`, margin + 10, currentY + 85);
+            doc.text(`Placa: ${report.appendices.pinoutBoardName}`, margin + 10, currentY + h + 5);
           }
-          currentY += 95;
+          currentY += (h + 15);
         }
       }
 
@@ -1954,7 +2000,7 @@ const App: React.FC = () => {
             <div className="bg-white p-6 rounded-[3rem] shadow-xl border-4 border-slate-50">
               <div className="flex items-center space-x-3 mb-6 border-b-2 border-slate-100 pb-3 pl-6 pt-4">
                 <div className="p-2 bg-slate-100 rounded-xl text-slate-600"><ImageIcon size={20} /></div>
-                <h3 className="font-black text-[#004b87] uppercase tracking-widest text-xs">I. DESCRIPCIÓN GRÁFICA DEL MONTAJE</h3>
+                <h3 className="font-black text-[#004b87] uppercase tracking-widest text-xl">I. DESCRIPCIÓN GRÁFICA DEL MONTAJE</h3>
               </div>
 
               {/* Tabs Nav */}
@@ -2074,7 +2120,7 @@ const App: React.FC = () => {
             {/* III. MATERIALES */}
             <div className="bg-white p-12 rounded-[4rem] shadow-2xl border-2 border-slate-50 space-y-8">
               <div className="flex flex-col md:flex-row justify-between items-center border-b-2 border-[#9e1b32] pb-4 gap-4">
-                <h3 className="text-sm font-black text-[#004b87] uppercase flex items-center tracking-[0.2em]"><Layers className="mr-3 w-5 h-5 text-[#9e1b32]" /> III. Materiales y Equipos</h3>
+                <h3 className="text-xl font-black text-[#004b87] uppercase flex items-center tracking-[0.2em]"><Layers className="mr-3 w-6 h-6 text-[#9e1b32]" /> III. Materiales y Equipos</h3>
 
                 <div className="flex items-center gap-4">
                   <div className="flex bg-slate-100 p-1 rounded-xl">
@@ -2249,7 +2295,7 @@ const App: React.FC = () => {
             </div>
 
             <div className="bg-white p-6 rounded-[2rem] shadow-sm border-2 border-slate-50 mb-0 flex items-center space-x-4">
-              <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">NOMBRE DE SERIE:</span>
+              <span className="text-xl font-black text-slate-300 uppercase tracking-widest">NOMBRE DE SERIE:</span>
               <input
                 className="flex-1 text-lg font-black text-[#004b87] outline-none border-b-2 border-transparent focus:border-blue-100 transition-all placeholder-slate-200"
                 value={activeSeries.name}
@@ -2472,7 +2518,7 @@ const App: React.FC = () => {
 
               <div className="bg-white p-10 rounded-[3.5rem] shadow-2xl border-2 border-slate-50 space-y-6 relative overflow-hidden group max-w-5xl mx-auto">
                 <div className="flex justify-between items-center border-b-2 border-[#9e1b32] pb-3 relative">
-                  <label className="text-[10px] font-black text-[#004b87] uppercase flex items-center tracking-widest"><LinkIcon size={14} className="mr-2 text-[#9e1b32]" /> GRÁFICA INTERACTIVA</label>
+                  <label className="text-xl font-black text-[#004b87] uppercase flex items-center tracking-widest"><LinkIcon size={20} className="mr-2 text-[#9e1b32]" /> GRÁFICA INTERACTIVA</label>
                   {/* Optional: We can still keep an external link if needed, but the main interaction is now embedded */}
                 </div>
 
@@ -2519,8 +2565,20 @@ const App: React.FC = () => {
             <div className="bg-white p-8 rounded-[3rem] shadow-xl border-4 border-slate-50">
               <div className="flex items-center space-x-3 mb-6 border-b-2 border-slate-100 pb-3">
                 <div className="p-2 bg-slate-100 rounded-xl text-slate-600"><Code size={20} /></div>
-                <h3 className="font-black text-[#004b87] uppercase tracking-widest text-xs">APÉNDICE A: CÓDIGO FUENTE</h3>
+                <h3 className="font-black text-[#004b87] uppercase tracking-widest text-xl">APÉNDICE A: CÓDIGO FUENTE</h3>
               </div>
+
+              <div className="mb-8">
+                <Section
+                  title="Descripción del Código"
+                  value={report.appendices?.codeDescription || ''}
+                  onChange={(v: string) => updateReport({ appendices: { ...report.appendices, codeDescription: v } })}
+                  help="Explique el funcionamiento del código."
+                  report={report}
+                  updateReport={updateReport} // Pass as is, Section handles images internally via updateReport
+                />
+              </div>
+
               {report.appendices?.codeContent ? (
                 <div className="bg-slate-900 rounded-2xl p-6 overflow-x-auto">
                   <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
@@ -2543,13 +2601,42 @@ const App: React.FC = () => {
             <div className="bg-white p-8 rounded-[3rem] shadow-xl border-4 border-slate-50">
               <div className="flex items-center space-x-3 mb-6 border-b-2 border-slate-100 pb-3">
                 <div className="p-2 bg-slate-100 rounded-xl text-slate-600"><Layers size={20} /></div>
-                <h3 className="font-black text-[#004b87] uppercase tracking-widest text-xs">APÉNDICE B: ESQUEMÁTICO</h3>
+                <h3 className="font-black text-[#004b87] uppercase tracking-widest text-xl">APÉNDICE B: ESQUEMÁTICO</h3>
               </div>
+
+              <div className="mb-8">
+                <Section
+                  title="Descripción del Esquemático"
+                  value={report.appendices?.schematicDescription || ''}
+                  onChange={(v: string) => updateReport({ appendices: { ...report.appendices, schematicDescription: v } })}
+                  help="Describa el circuito y sus conexiones."
+                  report={report}
+                  updateReport={updateReport}
+                />
+              </div>
+
               {report.appendices?.cirkitSchematicImage ? (
-                <div className="rounded-[2rem] overflow-hidden border-2 border-slate-100 shadow-sm relative group">
-                  <img src={report.appendices.cirkitSchematicImage} className="w-full h-auto object-contain bg-white" />
-                  <div className="absolute inset-0 bg-black/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    <span className="bg-black/50 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">Vista Previa</span>
+                <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col items-center">
+                  <div className="w-full flex justify-between items-center mb-4 px-4">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Vista Previa</span>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-[10px] font-bold text-slate-400">ESCALA PDF: {(report.appendices.schematicScale || 100)}%</span>
+                      <input
+                        type="range"
+                        min="20"
+                        max="150"
+                        step="10"
+                        value={report.appendices.schematicScale || 100}
+                        onChange={(e) => updateReport({ appendices: { ...report.appendices, schematicScale: parseInt(e.target.value) } })}
+                        className="w-24 h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                  <div className="rounded-[2rem] overflow-hidden border-2 border-slate-100 shadow-sm relative group w-full">
+                    <img src={report.appendices.cirkitSchematicImage} className="w-full h-auto object-contain bg-white" />
+                    <div className="absolute inset-0 bg-black/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                      <span className="bg-black/50 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">Vista Previa</span>
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -2565,16 +2652,45 @@ const App: React.FC = () => {
             <div className="bg-white p-8 rounded-[3rem] shadow-xl border-4 border-slate-50">
               <div className="flex items-center space-x-3 mb-6 border-b-2 border-slate-100 pb-3">
                 <div className="p-2 bg-slate-100 rounded-xl text-slate-600"><Database size={20} /></div>
-                <h3 className="font-black text-[#004b87] uppercase tracking-widest text-xs">APÉNDICE C: PINES</h3>
+                <h3 className="font-black text-[#004b87] uppercase tracking-widest text-xl">APÉNDICE C: PINES</h3>
               </div>
+
+              <div className="mb-8">
+                <Section
+                  title="Descripción del Pinout"
+                  value={report.appendices?.pinoutDescription || ''}
+                  onChange={(v: string) => updateReport({ appendices: { ...report.appendices, pinoutDescription: v } })}
+                  help="Detalle la configuración de pines utilizada."
+                  report={report}
+                  updateReport={updateReport}
+                />
+              </div>
+
               {report.appendices?.pinoutBoardImage ? (
-                <div className="rounded-[2rem] overflow-hidden border-2 border-slate-100 shadow-sm relative group">
-                  <img src={report.appendices.pinoutBoardImage} className="w-full h-auto object-contain bg-white" />
-                  {report.appendices.pinoutBoardName && (
-                    <div className="absolute bottom-4 left-4 bg-white/90 px-3 py-1 rounded-lg text-[10px] font-black text-[#004b87] uppercase tracking-widest shadow-sm">
-                      {report.appendices.pinoutBoardName}
+                <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col items-center">
+                  <div className="w-full flex justify-between items-center mb-4 px-4">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Vista Previa</span>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-[10px] font-bold text-slate-400">ESCALA PDF: {(report.appendices.pinoutScale || 100)}%</span>
+                      <input
+                        type="range"
+                        min="20"
+                        max="150"
+                        step="10"
+                        value={report.appendices.pinoutScale || 100}
+                        onChange={(e) => updateReport({ appendices: { ...report.appendices, pinoutScale: parseInt(e.target.value) } })}
+                        className="w-24 h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                      />
                     </div>
-                  )}
+                  </div>
+                  <div className="rounded-[2rem] overflow-hidden border-2 border-slate-100 shadow-sm relative group w-full">
+                    <img src={report.appendices.pinoutBoardImage} className="w-full h-auto object-contain bg-white" />
+                    {report.appendices.pinoutBoardName && (
+                      <div className="absolute bottom-4 left-4 bg-white/90 px-3 py-1 rounded-lg text-[10px] font-black text-[#004b87] uppercase tracking-widest shadow-sm">
+                        {report.appendices.pinoutBoardName}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="text-center p-12 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200">

@@ -158,4 +158,16 @@ export interface AppendixData {
   pinoutBoardName?: string;
   selectedBoardId?: string;
   pinoutConfiguration?: any; // JSON configuration data
+
+  // Context Fields
+  codeDescription?: string;
+  codeContextImage?: string;
+  schematicDescription?: string;
+  schematicContextImage?: string;
+  pinoutDescription?: string;
+  pinoutContextImage?: string;
+
+  // Scale Factors for PDF (0-100%)
+  schematicScale?: number;
+  pinoutScale?: number;
 }
