@@ -117,6 +117,8 @@ export interface LabReport {
   marcoConceptual: string;
   montajeText: string;
   setupImageUrl?: string;
+  setupImageCaption?: string;
+  setupImageScale?: number;
   circuitDiagramUrl?: string;
   cirkitProjectUrl?: string;
   materials: MaterialRow[];

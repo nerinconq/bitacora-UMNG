@@ -1534,8 +1534,23 @@ const App: React.FC = () => {
       currentY = await addBoxedSec('MONTAJE EXPERIMENTAL', report.montajeText, currentY);
       if (report.setupImageUrl) {
         if (currentY + 65 > pageBottomLimit) { doc.addPage(); currentY = 20; }
-        const h = await addSafeImage(report.setupImageUrl, margin, currentY, 120, 0);
-        currentY += h + 10;
+
+        const scale = (report.setupImageScale || 100) / 100;
+        const imgW = 130 * scale;
+        const imgX = margin + (pageWidth - 2 * margin - imgW) / 2;
+
+        const h = await addSafeImage(report.setupImageUrl, imgX, currentY, imgW, 0);
+
+        if (report.setupImageCaption) {
+          doc.setFontSize(9);
+          doc.setTextColor(100, 100, 100);
+          const captionWidth = doc.getTextWidth(`Figura 1. ${report.setupImageCaption}`);
+          const captionX = margin + (pageWidth - 2 * margin - captionWidth) / 2;
+          doc.text(`Figura 1. ${report.setupImageCaption}`, captionX, currentY + h + 5);
+          currentY += h + 15;
+        } else {
+          currentY += h + 10;
+        }
       }
 
       // Materiales
@@ -2042,6 +2057,34 @@ const App: React.FC = () => {
                       <button onClick={(e) => { e.stopPropagation(); updateReport({ setupImageUrl: '' }) }} className="absolute top-4 right-4 p-3 bg-red-100 text-red-500 rounded-xl hover:bg-red-200 transition-colors z-10 shadow-sm"><Trash2 size={20} /></button>
                     )}
                   </div>
+
+                  {/* Image Options */}
+                  {report.setupImageUrl && (
+                    <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <div>
+                        <Input
+                          label="Descripción de la Imagen (Caption)"
+                          value={report.setupImageCaption || ''}
+                          onChange={(v: string) => updateReport({ setupImageCaption: v })}
+                          placeholder="Ej: Montaje con sensor de movimiento..."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                          Escala en PDF: {report.setupImageScale || 100}%
+                        </label>
+                        <input
+                          type="range"
+                          min="30"
+                          max="100"
+                          value={report.setupImageScale || 100}
+                          onChange={(e) => updateReport({ setupImageScale: parseInt(e.target.value) })}
+                          className="w-full accent-[#004b87] h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   <p className="text-center text-[10px] text-slate-400 mt-4 font-bold uppercase tracking-widest">Suba una foto clara de la disposición de equipos en el laboratorio</p>
                 </div>
 
