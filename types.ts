@@ -160,6 +160,7 @@ export interface AppendixData {
   pinoutBoardName?: string;
   selectedBoardId?: string;
   pinoutConfiguration?: any; // JSON configuration data
+  pinoutBoardState?: any; // Stores the activeBoard with custom pins
 
   // Context Fields
   codeDescription?: string;
