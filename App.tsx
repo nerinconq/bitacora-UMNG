@@ -1524,6 +1524,7 @@ const App: React.FC = () => {
                 <div className={activeTab === 'pines' ? 'block' : 'hidden'}>
                   <PinoutViewer
                     selectedBoardId={report.appendices?.selectedBoardId}
+                    codeContent={report.appendices?.codeContent || ''}
                     onSelectBoard={(boardId: string) => {
                       updateReport({
                         appendices: {
