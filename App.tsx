@@ -1847,12 +1847,12 @@ const App: React.FC = () => {
                   </thead>
                   <tbody>
                     {activeSeries.measurements.map((row, idx) => (
-                      <MeasurementTableRow 
-                        key={idx} 
-                        row={row} 
-                        idx={idx} 
-                        series={activeSeries} 
-                        onChange={handleRowChange} 
+                      <MeasurementTableRow
+                        key={idx}
+                        row={row}
+                        idx={idx}
+                        series={activeSeries}
+                        onChange={handleRowChange}
                       />
                     ))}
                   </tbody>
@@ -2090,25 +2090,98 @@ const App: React.FC = () => {
                 <div className="bg-blue-50 p-8 rounded-[3rem] border-2 border-blue-100">
                   <h4 className="font-black text-blue-900 uppercase tracking-widest text-xs mb-4 flex items-center"><PlusCircle className="mr-2" size={16} /> Para el Estudiante</h4>
                   <ul className="space-y-3 text-sm font-semibold text-blue-800 list-disc pl-5">
-                    <li>Carga de datos experimentales con promedios automáticos.</li>
-                    <li>Incertidumbres dinámicas por fila de medición.</li>
-                    <li>Integración de gráficas Desmos vía ID único.</li>
-                    <li>Guardado local para evitar pérdida de progreso.</li>
+                    <li><strong className="text-blue-900">ABRIR / GUARDAR:</strong> Importa o exporta tu trabajo actual en formato JSON (menú lateral).</li>
+                    <li><strong className="text-blue-900">REINICIAR:</strong> Borra todo el progreso para empezar un nuevo reporte.</li>
+                    <li><strong className="text-blue-900">ROTAR TABLA:</strong> Activa esta opción para que la tabla de datos genere una hoja en formato horizontal independiente en el PDF.</li>
+                    <li>Carga de datos experimentales con promedios y errores automáticos.</li>
+                    <li>Integración de gráficas vía enlace único de Desmos.</li>
+                    <li>Integración de código para Arduino y visualizador interactivo de pines (Pinout).</li>
                   </ul>
                 </div>
                 <div className="bg-emerald-50 p-8 rounded-[3rem] border-2 border-emerald-100">
                   <h4 className="font-black text-emerald-900 uppercase tracking-widest text-xs mb-4 flex items-center"><TrendingUp className="mr-2" size={16} /> Para el Docente</h4>
                   <ul className="space-y-3 text-sm font-semibold text-emerald-800 list-disc pl-5">
-                    <li>Sistema de rúbricas parametrizables al 100%.</li>
-                    <li>Edición de pesos porcentuales por competencia.</li>
-                    <li>Calificación visual con retroalimentación inmediata.</li>
-                    <li>Visualización de regresión lineal rigurosa.</li>
+                    <li><strong className="text-emerald-900">Alternar Modo:</strong>  Activa el "Modo Docente" en el encabezado.</li>
+                    <li><strong className="text-emerald-900">Rúbricas:</strong> Sistema 100% parametrizable (Gestor en menú lateral).</li>
+                    <li><strong className="text-emerald-900">Calificación:</strong> Opción para otorgar puntajes directos por cada ítem.</li>
+                    <li>Evalúa análisis de gráficas y visualiza la nota estimada en vivo.</li>
                   </ul>
                 </div>
               </div>
+
+              <section className="space-y-6">
+                <h3 className="text-2xl font-black text-[#004b87] uppercase tracking-tighter flex items-center"><Layers className="mr-3 text-[#9e1b32]" /> Funciones por Sección</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                  <div className="p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl">
+                    <h4 className="font-black text-[#004b87] uppercase tracking-widest text-xs mb-3 flex items-center"><Users size={16} className="mr-2" /> 1. GENERAL Y TEORÍA</h4>
+                    <p className="text-sm font-medium text-slate-600 mb-3">En "General" se llenan los datos básicos de los estudiantes y el nombre del profesor. El resumen es aconsejable dejarlo para el final del desarrollo de la bitácora.</p>
+                    <p className="text-sm font-medium text-slate-600 mb-3">En "Teoría" se redacta la introducción teórica y el marco conceptual. Puedes insertar <strong className="text-[#004b87]">imágenes</strong> con el icono junto a los títulos y ajustar su diagrama. La hipótesis solo se escribe si aplica al experimento.</p>
+                    <p className="text-sm font-medium text-slate-600"><strong>Nota:</strong> Cualquier imagen insertada se ajustará automáticamente, y cuentas con soporte LaTeX.</p>
+                  </div>
+
+                  <div className="p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl">
+                    <h4 className="font-black text-[#004b87] uppercase tracking-widest text-xs mb-3 flex items-center"><Settings size={16} className="mr-2" /> 2. MONTAJE</h4>
+                    <p className="text-sm font-medium text-slate-600 mb-2">Posee 4 pestañas interactivas:</p>
+                    <ul className="text-xs font-medium text-slate-600 space-y-2 list-disc pl-5">
+                      <li><strong>Físico:</strong> Imagen del montaje en el laboratorio. Ingresa la descripción en el <em>caption</em> detallando cada componente.</li>
+                      <li><strong>Esquemático:</strong> Gráfica o esquema de circuitos implementados (ej. usando Cirkit).</li>
+                      <li><strong>Código:</strong> Editor integrado (ej. C++ a adecuarse en Python), incluye autoconversor.</li>
+                      <li><strong>Pines:</strong> Señalización interactiva de pines usados (ej. en ESP32/micro).</li>
+                    </ul>
+                    <p className="text-xs font-medium text-slate-600 mt-3">Además, gestiona los "Materiales" de laborario/estudiante. Su descripción se puede mostrar u ocultar con el botón "VER DETALLES".</p>
+                  </div>
+
+                  <div className="p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl">
+                    <h4 className="font-black text-[#004b87] uppercase tracking-widest text-xs mb-3 flex items-center"><TableIcon size={16} className="mr-2" /> 3. DATOS</h4>
+                    <p className="text-sm font-medium text-slate-600 mb-2">Dividido en tres secciones claves para reportar <strong className="text-red-500">mínimo 5 datos</strong>:</p>
+                    <ul className="text-xs font-medium text-slate-600 space-y-2 list-disc pl-5">
+                      <li><strong>Variables Principales:</strong> Crea la dependiente e independiente, con sus repeticiones, promedios e incertidumbres según la precisión del instrumento.</li>
+                      <li><strong>Variables Extra:</strong> Para medidas únicas que no cambian en la tabla (ej. masa) pero afectan al experimento.</li>
+                      <li><strong>Indirectas (Calculadas):</strong> Magnitudes obtenidas de operar las principales (ej. velocidad a partir de posición y tiempo).</li>
+                    </ul>
+                    <p className="text-xs font-medium text-slate-600 mt-2">Puedes arrastrar variables para intercambiarlas y crear nuevas series desde la cabecera.</p>
+                  </div>
+
+                  <div className="p-6 bg-slate-50 border-2 border-slate-100 rounded-3xl">
+                    <h4 className="font-black text-[#004b87] uppercase tracking-widest text-xs mb-3 flex items-center"><BarChart size={16} className="mr-2" /> 4. RESULTADOS Y APÉNDICES</h4>
+                    <p className="text-sm font-medium text-slate-600 mb-2">Incluye ajuste por <strong>mínimos cuadrados</strong> para comportamientos lineales.</p>
+                    <p className="text-xs font-medium text-slate-600 mb-2"><em>💡 Tip para evaluar linealidad:</em> Si tu función no es lineal (ej. Fuerza vs inverso de r²), desliza la variable al panel Indirecto, aplica el inverso y reemplázala como Dependiente o Independiente para linealizarla, o aplícale logaritmo.</p>
+                    <ul className="text-xs font-medium text-slate-600 space-y-2 list-disc pl-5">
+                      <li>Gráfica interactiva vía <strong>Desmos</strong> si no es linealizable por código.</li>
+                      <li>Incertidumbre, m, y R² calculados automáticamente.</li>
+                      <li>Análisis de resultados y conclusiones con inserción de imágenes.</li>
+                      <li><strong>Apéndices:</strong> Abarca esquemáticos, códigos y pinout. Exclusivo para la exportación.</li>
+                    </ul>
+                  </div>
+
+                </div>
+              </section>
+
+              <section className="bg-slate-50 p-8 rounded-[3rem] border-2 border-slate-100 mb-8">
+                <h4 className="font-black text-emerald-700 uppercase tracking-widest text-lg mb-4 flex items-center"><Download size={24} className="mr-3" /> EXPORTACIÓN Y TRABAJO EN EQUIPO</h4>
+                <div className="space-y-4 text-sm font-medium leading-relaxed text-slate-700">
+                  <p>
+                    <strong className="text-blue-700">Compartir Progreso (JSON):</strong> Usa el botón <strong className="text-[#004b87]">GUARDAR</strong> para exportar un archivo <code>.json</code>. Puedes compartir este archivo con tus compañeros de grupo para que lo importen con <strong className="text-[#004b87]">ABRIR</strong> y puedan seguir complementando el trabajo desde donde lo dejaste, o consolidar las partes de cada integrante.
+                  </p>
+                  <p>
+                    <strong className="text-red-700">Documento Final (PDF):</strong> Una vez llenado el informe y revisado por todo el equipo, recuerda siempre utilizar la opción <strong className="text-[#9e1b32]">EXPORTAR PDF</strong> en la parte superior derecha. Esto generará un documento limpio con gráficos, código renderizado e imágenes en su lugar correspondiente, ideal para imprimir o cargar como evidencia formal de tu trabajo.
+                  </p>
+                </div>
+              </section>
+
               <section className="bg-slate-50 p-8 rounded-[3rem] border-2 border-slate-100">
-                <h4 className="font-black text-[#004b87] uppercase tracking-widest text-xs mb-4">Uso de LaTeX</h4>
-                <p className="text-sm font-medium leading-relaxed">Utilice <code className="bg-white px-2 py-1 rounded-lg border text-blue-600 font-bold">$...$</code> para fórmulas en línea. Ejemplo: <code className="bg-white px-2 py-1 rounded-lg border text-blue-600 font-bold">$\sum F = ma$</code>. Para listas use <code className="bg-white px-2 py-1 rounded-lg border text-blue-600 font-bold">\begin{"{itemize}"} \item ... \end{"{itemize}"}</code>.</p>
+                <h4 className="font-black text-[#004b87] uppercase tracking-widest text-xs mb-4">Uso de LaTeX Avanzado</h4>
+                <p className="text-sm font-medium leading-relaxed mb-4">
+                  Puedes utilizar comandos LaTeX en toda el área de texto.
+                  Usa <code className="bg-white px-2 py-1 rounded-lg border text-blue-600 font-bold">$...$</code> para fórmulas en línea. Ejemplo: <code className="bg-white px-2 py-1 rounded-lg border text-blue-600 font-bold">$\sum F = ma$</code>.<br />
+                  Para ecuaciones en bloque, puedes usar <code className="bg-white px-2 py-1 rounded-lg border text-blue-600 font-bold">$$...$$</code> o bien <code className="bg-white px-2 py-1 rounded-lg border text-blue-600 font-bold" dangerouslySetInnerHTML={{ __html: '\\begin{equation}...\\end{equation}' }}></code>.
+                </p>
+                <div className="bg-white p-4 rounded-2xl border border-blue-100 text-xs text-slate-600">
+                  <strong className="text-[#004b87] block mb-2">🖼️ Dimensionar Imágenes:</strong>
+                  Al insertar una imagen con el botón de la cámara, se generará un bloque LaTeX. Para cambiar su tamaño, simplemente modifica el valor multiplicador de <code className="bg-slate-100 px-1 rounded text-red-600">width=0.8\linewidth</code>.
+                  <br />Por ejemplo, usa <code>0.5</code> para la mitad de ancho o <code>1.0</code> para el ancho total de la página.
+                </div>
               </section>
             </div>
             <div className="p-8 bg-slate-50 border-t-2 border-slate-100 flex justify-center">
@@ -2313,7 +2386,7 @@ const App: React.FC = () => {
           </div>
           <div>
             <h1 className="text-3xl font-black uppercase tracking-tighter leading-none flex items-center">PHYSICSLAB UMNG <CheckCircle2 size={16} className="ml-2 text-emerald-400" /></h1>
-            <p className="text-[10px] font-black text-blue-200 uppercase tracking-[0.4em] mt-2 opacity-80">V14.0 RESTORATION PURE</p>
+            <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.4em] mt-2 opacity-80">Departamento de Física</p>
           </div>
         </div>
 
@@ -2343,18 +2416,7 @@ const App: React.FC = () => {
             </div>
           )}
 
-          <div className="h-10 w-[1px] bg-white/10 mx-2"></div>
 
-          <label className="bg-white/10 hover:bg-white/20 px-6 py-3 rounded-2xl font-black text-[10px] cursor-pointer transition-all flex items-center uppercase tracking-widest border border-white/5 group active:scale-95">
-            <FolderOpen size={16} className="mr-3 text-blue-300 group-hover:text-white" /> ABRIR
-            <input type="file" className="hidden" accept=".json" onChange={handleImportJSON} />
-          </label>
-          <button onClick={handleExportJSON} className="bg-white/10 hover:bg-white/20 px-6 py-3 rounded-2xl font-black text-[10px] flex items-center transition-all uppercase tracking-widest border border-white/5 group active:scale-95">
-            <Save size={16} className="mr-3 text-emerald-300 group-hover:text-white" /> GUARDAR
-          </button>
-          <button onClick={handleResetReport} className="bg-white/10 hover:bg-red-500/20 px-6 py-3 rounded-2xl font-black text-[10px] flex items-center transition-all uppercase tracking-widest border border-white/5 group active:scale-95">
-            <Trash2 size={16} className="mr-3 text-red-300 group-hover:text-white" /> REINICIAR
-          </button>
 
 
           <label className="flex items-center cursor-pointer mr-4" title="Rotar tabla de datos en hoja horizontal independiente">
@@ -2412,6 +2474,26 @@ const App: React.FC = () => {
                 </div>
               );
             })}
+          </div>
+
+          <div className="bg-white p-2 rounded-[3.5rem] shadow-2xl space-y-2 border-2 border-white">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-center py-2">Opciones de Archivo</h3>
+
+            <label className="w-full p-5 rounded-[2.8rem] flex items-center space-x-5 transition-all duration-300 cursor-pointer bg-transparent text-slate-400 hover:bg-slate-50 hover:text-slate-600 group">
+              <div className="p-3 rounded-2xl transition-all duration-500 shadow-sm bg-slate-100 group-hover:rotate-6"><FolderOpen size={18} /></div>
+              <span className="font-black text-[11px] uppercase tracking-[0.2em]">ABRIR</span>
+              <input type="file" className="hidden" accept=".json" onChange={handleImportJSON} />
+            </label>
+
+            <button onClick={handleExportJSON} className="w-full p-5 rounded-[2.8rem] flex items-center space-x-5 transition-all duration-300 bg-transparent text-slate-400 hover:bg-slate-50 hover:text-emerald-500 group text-left">
+              <div className="p-3 rounded-2xl transition-all duration-500 shadow-sm bg-slate-100 group-hover:rotate-6"><Save size={18} /></div>
+              <span className="font-black text-[11px] uppercase tracking-[0.2em]">GUARDAR</span>
+            </button>
+
+            <button onClick={handleResetReport} className="w-full p-5 rounded-[2.8rem] flex items-center space-x-5 transition-all duration-300 bg-transparent text-slate-400 hover:bg-red-50 hover:text-red-600 group text-left">
+              <div className="p-3 rounded-2xl transition-all duration-500 shadow-sm bg-slate-100 group-hover:rotate-6"><Trash2 size={18} /></div>
+              <span className="font-black text-[11px] uppercase tracking-[0.2em]">REINICIAR</span>
+            </button>
           </div>
 
           {isDocente && (
