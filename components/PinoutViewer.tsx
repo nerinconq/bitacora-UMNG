@@ -29,12 +29,13 @@ interface GPIOViewerBoard {
 interface PinoutViewerProps {
     onSelectBoard: (boardId: string) => void;
     selectedBoardId?: string;
+    codeContent?: string;
     onExportToAppendix?: (boardName: string, imageUrl: string) => void;
 }
 
 const GPIO_BASE_URL = "https://thelastoutpostworkshop.github.io/microcontroller_devkit/gpio_viewer_1_5/";
 
-export const PinoutViewer: React.FC<PinoutViewerProps> = ({ onSelectBoard, selectedBoardId, onExportToAppendix }) => {
+export const PinoutViewer: React.FC<PinoutViewerProps> = ({ onSelectBoard, selectedBoardId, codeContent, onExportToAppendix }) => {
     const [boards, setBoards] = useState<Board[]>([]);
     const [activeBoard, setActiveBoard] = useState<Board | null>(null);
     const [hoveredPin, setHoveredPin] = useState<Pin | null>(null);
@@ -49,6 +50,61 @@ export const PinoutViewer: React.FC<PinoutViewerProps> = ({ onSelectBoard, selec
 
     // Editing State
     const [editPinForm, setEditPinForm] = useState<Pin>({ pin: '', name: '', type: 'GPIO', description: '' });
+    const [editingPinIndex, setEditingPinIndex] = useState<number | null>(null);
+
+    // --- NEW: Auto-parse from Code Content ---
+    useEffect(() => {
+        if (!activeBoard || !codeContent) return;
+
+        const newPins: Pin[] = [];
+        const existingPins = new Set(activeBoard.pins.map(p => p.pin.toString().toUpperCase()));
+
+        const addIfNotExists = (pinStr: string, name: string, type: string, desc: string) => {
+            if (!existingPins.has(pinStr.toUpperCase()) && !newPins.find(p => p.pin.toString().toUpperCase() === pinStr.toUpperCase())) {
+                newPins.push({ pin: pinStr, name: name, type, description: desc });
+            }
+        };
+
+        // Parse Custom Wire Pins: Wire.begin(sda, scl) OR Wire.setPins(sda, scl)
+        const wireCustomRegex = /Wire\.(?:begin|setPins)\s*\(\s*([0-9]+)\s*,\s*([0-9]+)\s*\)/;
+        const wireMatch = codeContent.match(wireCustomRegex);
+        if (wireMatch) {
+            addIfNotExists(wireMatch[1], `${wireMatch[1]} (SDA)`, 'GPIO', 'I2C Data (Auto-detectado)');
+            addIfNotExists(wireMatch[2], `${wireMatch[2]} (SCL)`, 'GPIO', 'I2C Clock (Auto-detectado)');
+        } else if (codeContent.includes('Wire.begin')) {
+            addIfNotExists('SDA', 'SDA', 'GPIO', 'I2C Data (Auto-detectado)');
+            addIfNotExists('SCL', 'SCL', 'GPIO', 'I2C Clock (Auto-detectado)');
+        }
+
+        // Parse Custom Serial Pins: SerialX.begin(baud, serial_config, rx, tx) or Serial.setRxTx(rx, tx)
+        // Keep it simple: standard Serial.begin implies default TX/RX
+        if (codeContent.includes('Serial.begin')) {
+            addIfNotExists('TX', 'TX', 'UART', 'Serial Transmit (Auto-detectado)');
+            addIfNotExists('RX', 'RX', 'UART', 'Serial Receive (Auto-detectado)');
+        }
+
+        // Parse pinMode
+        const pinModeRegex = /pinMode\s*\(\s*([a-zA-Z0-9_]+)\s*,\s*([A-Z_]+)\s*\)/g;
+        let match;
+        // Reset the lastIndex just in case
+        pinModeRegex.lastIndex = 0;
+        let count = 0;
+        while ((match = pinModeRegex.exec(codeContent)) !== null && count < 50) {
+            count++;
+            const pinVal = match[1];
+            const modeVal = match[2]; // INPUT, OUTPUT, INPUT_PULLUP
+            addIfNotExists(pinVal, `${pinVal} (${modeVal})`, 'GPIO', `Configurado como ${modeVal} (Auto-detectado)`);
+        }
+
+        if (newPins.length > 0) {
+            const updatedBoard = {
+                ...activeBoard,
+                pins: [...activeBoard.pins, ...newPins]
+            };
+            setActiveBoard(updatedBoard);
+            setBoards(prev => prev.map(b => b.id === updatedBoard.id ? updatedBoard : b));
+        }
+    }, [codeContent, activeBoard?.id]); // Only run when code changes or board switches to new board.
 
     useEffect(() => {
         // Initialize with default data and templates if empty
@@ -76,9 +132,9 @@ export const PinoutViewer: React.FC<PinoutViewerProps> = ({ onSelectBoard, selec
                 pins: [
                     { pin: '3V3', name: '3V3', type: 'POWER', description: 'Power', x: 21, y: 18 },
                     { pin: 'GND', name: 'GND', type: 'POWER', description: 'Ground', x: 79, y: 18 },
-                    { pin: 1, name: 'TX', type: 'UART', description: 'Serial TX', x: 79, y: 25 },
-                    { pin: 3, name: 'RX', type: 'UART', description: 'Serial RX', x: 79, y: 28 },
-                    { pin: 0, name: 'BOOT', type: 'GPIO', description: 'Boot Button', x: 79, y: 55 },
+                    { pin: 1, name: '1 (TX)', type: 'UART', description: 'Serial TX', x: 79, y: 25 },
+                    { pin: 3, name: '3 (RX)', type: 'UART', description: 'Serial RX', x: 79, y: 28 },
+                    { pin: 0, name: '0 (BOOT)', type: 'GPIO', description: 'Boot Button', x: 79, y: 55 },
                 ]
             });
         }
@@ -162,6 +218,13 @@ export const PinoutViewer: React.FC<PinoutViewerProps> = ({ onSelectBoard, selec
 
     const handleAddPin = () => {
         if (!activeBoard) return;
+
+        // Prevent exact duplicates
+        if (activeBoard.pins.some(p => p.pin.toString().toUpperCase() === editPinForm.pin.toString().toUpperCase() && p.name === editPinForm.name)) {
+            alert(`El pin ${editPinForm.pin} ya existe en la lista. En su lugar, usa el botón de editar (lápiz) para modificar su posición u otros detalles.`);
+            return;
+        }
+
         const updatedBoard = {
             ...activeBoard,
             pins: [...activeBoard.pins, { ...editPinForm }]
@@ -170,6 +233,20 @@ export const PinoutViewer: React.FC<PinoutViewerProps> = ({ onSelectBoard, selec
         setActiveBoard(updatedBoard);
         setBoards(prev => prev.map(b => b.id === updatedBoard.id ? updatedBoard : b));
         setEditPinForm({ pin: '', name: '', type: 'GPIO', description: '', x: undefined, y: undefined });
+    };
+
+    const handleUpdatePin = (idx: number) => {
+        if (!activeBoard) return;
+        const updatedPins = [...activeBoard.pins];
+        updatedPins[idx] = { ...editPinForm };
+        const updatedBoard = {
+            ...activeBoard,
+            pins: updatedPins
+        };
+        setActiveBoard(updatedBoard);
+        setBoards(prev => prev.map(b => b.id === updatedBoard.id ? updatedBoard : b));
+        setEditPinForm({ pin: '', name: '', type: 'GPIO', description: '', x: undefined, y: undefined });
+        setEditingPinIndex(null);
     };
 
     const handleDeletePin = (idx: number) => {
@@ -311,7 +388,7 @@ export const PinoutViewer: React.FC<PinoutViewerProps> = ({ onSelectBoard, selec
                                     : activeBoard.imageUrl}
                                 crossOrigin="anonymous"
                                 alt={activeBoard.name}
-                                className="max-w-full max-h-full object-contain shadow-lg rounded-lg transition-transform"
+                                className="max-w-full max-h-full object-contain shadow-lg rounded-lg transition-transform relative z-10 pointer-events-none"
                             />
 
                             {/* Visual Editor Overlay: New Pin Marker */}
@@ -322,25 +399,54 @@ export const PinoutViewer: React.FC<PinoutViewerProps> = ({ onSelectBoard, selec
                                 />
                             )}
 
+                            {/* Line connections for pins */}
+                            <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
+                                {activeBoard.pins.map((pin, idx) => {
+                                    if (pin.x === undefined || pin.y === undefined) return null;
+                                    const isLeft = Number(pin.x) < 50;
+                                    const labelX = isLeft ? 15 : 85;
+                                    return (
+                                        <line
+                                            key={`line-${idx}`}
+                                            x1={`${labelX}%`}
+                                            y1={`${pin.y}%`}
+                                            x2="50%"
+                                            y2={`${pin.y}%`}
+                                            stroke={
+                                                pin.type === 'POWER' ? '#ef4444' :
+                                                    pin.type === 'GPIO' ? '#22c55e' :
+                                                        pin.type === 'ADC' ? '#a855f7' : '#64748b'
+                                            }
+                                            strokeWidth="2"
+                                            className="opacity-50"
+                                            strokeDasharray="4 4"
+                                        />
+                                    );
+                                })}
+                            </svg>
+
                             {/* Existing Pins Overlay */}
-                            {activeBoard.pins.map((pin, idx) => (
-                                pin.x !== undefined && pin.y !== undefined && (
+                            {activeBoard.pins.map((pin, idx) => {
+                                if (pin.x === undefined || pin.y === undefined) return null;
+                                const isLeft = Number(pin.x) < 50;
+                                return (
                                     <div
                                         key={idx}
-                                        className={`absolute px-2 py-0.5 rounded-md text-[9px] font-black uppercase shadow-sm border transform -translate-x-1/2 -translate-y-1/2 transition-all cursor-pointer z-10
+                                        className={`absolute whitespace-nowrap px-2 py-0.5 rounded-md text-[9px] font-black uppercase shadow-sm border transform -translate-y-1/2 transition-all cursor-pointer z-10 flex items-center justify-center min-w-max text-center leading-tight
+                                            ${isLeft ? '-translate-x-full' : 'translate-x-0'}
                                             ${hoveredPin === pin ? 'scale-125 z-30 ring-2 ring-white' : ''}
                                             ${pin.type === 'POWER' ? 'bg-red-500 text-white border-red-700' :
                                                 pin.type === 'GPIO' ? 'bg-green-500 text-white border-green-700' :
                                                     pin.type === 'ADC' ? 'bg-purple-500 text-white border-purple-700' : 'bg-slate-500 text-white border-slate-700'}`}
-                                        style={{ top: `${pin.y}%`, left: `${pin.x}%` }}
+                                        style={{ top: `${pin.y}%`, left: `${isLeft ? 15 : 85}%` }}
                                         onMouseEnter={() => setHoveredPin(pin)}
                                         onMouseLeave={() => setHoveredPin(null)}
                                         onClick={(e) => { e.stopPropagation(); setHoveredPin(pin); }}
                                     >
                                         {pin.name}
                                     </div>
-                                )
-                            ))}
+                                );
+                            })}
 
                             {activeBoard.pins.length === 0 && !isEditing && (
                                 <div className="absolute bottom-4 bg-yellow-100 text-yellow-800 text-xs px-3 py-1 rounded-full opacity-80 backdrop-blur-sm border border-yellow-200 shadow-sm animate-bounce">
@@ -406,11 +512,29 @@ export const PinoutViewer: React.FC<PinoutViewerProps> = ({ onSelectBoard, selec
                             onChange={e => setEditPinForm({ ...editPinForm, description: e.target.value })}
                         />
                         <button
-                            onClick={handleAddPin}
+                            onClick={() => {
+                                if (editingPinIndex !== null) {
+                                    handleUpdatePin(editingPinIndex);
+                                } else {
+                                    handleAddPin();
+                                }
+                            }}
                             className="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-1.5 rounded-lg flex items-center justify-center gap-1 transition-colors"
                         >
-                            <Plus size={12} /> Añadir Pin
+                            {editingPinIndex !== null ? <Save size={12} /> : <Plus size={12} />}
+                            {editingPinIndex !== null ? 'Actualizar Pin' : 'Añadir Pin'}
                         </button>
+                        {editingPinIndex !== null && (
+                            <button
+                                onClick={() => {
+                                    setEditingPinIndex(null);
+                                    setEditPinForm({ pin: '', name: '', type: 'GPIO', description: '', x: undefined, y: undefined });
+                                }}
+                                className="w-full bg-slate-700 hover:bg-slate-600 text-slate-300 text-[10px] py-1 mt-1 rounded-lg transition-colors"
+                            >
+                                Cancelar Edición
+                            </button>
+                        )}
                     </div>
                 )}
 
@@ -441,13 +565,22 @@ export const PinoutViewer: React.FC<PinoutViewerProps> = ({ onSelectBoard, selec
                             </div>
 
                             {isEditing && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); handleDeletePin(idx); }}
-                                    className="absolute -right-2 -top-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-red-600"
-                                    title="Eliminar pin"
-                                >
-                                    <Trash2 size={10} />
-                                </button>
+                                <div className="absolute -right-2 -top-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setEditPinForm(pin); setEditingPinIndex(idx); }}
+                                        className="bg-blue-500 text-white p-1 rounded-full shadow-md hover:bg-blue-600"
+                                        title="Editar pin"
+                                    >
+                                        <Edit2 size={10} />
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleDeletePin(idx); }}
+                                        className="bg-red-500 text-white p-1 rounded-full shadow-md hover:bg-red-600"
+                                        title="Eliminar pin"
+                                    >
+                                        <Trash2 size={10} />
+                                    </button>
+                                </div>
                             )}
                         </div>
                     ))}
