@@ -1,8 +1,8 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { jsPDF } from 'jspdf';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+
 import katex from 'katex';
-import html2canvas from 'html2canvas';
+
 import Prism from 'prismjs';
 import 'prismjs/components/prism-clike';
 import 'prismjs/components/prism-javascript';
@@ -20,12 +20,20 @@ import {
   LabReport, FormStep, MeasurementRow, MaterialRow, RegressionRow, RubricCriterion, Evaluation, RubricLevel,
   DataSeries, IndirectVariable, VariableConfig
 } from './types';
-import { calculateStats, parseNum, applyRuleOfGold, formatMeasure } from './utils/calculations';
+
 import { formatStudentName } from './utils/formatters';
 import { DesmosGraph } from './components/DesmosGraph';
 import { CodeEditor } from './components/CodeEditor';
 import { CirkitEmbed } from './components/CirkitEmbed';
 import { PinoutViewer } from './components/PinoutViewer';
+import { ExtraVarPanel } from './components/ExtraVarPanel';
+import { IndirectVarPanel } from './components/IndirectVarPanel';
+import { EstimationPanel } from './components/EstimationPanel';
+import { MeasurementTableRow } from './components/MeasurementTableRow';
+import { InputMini, SmartNumberInput, VarConfig } from './components/SharedUI';
+import { calculateRowAvgs, evaluateFormula, calculateIndirectValues, getRegressionData, calculateStats, parseNum, applyRuleOfGold, formatMeasure } from './utils/calculations';
+import { renderLatexToHtml, renderMathOnly, renderErrorFormula } from './utils/latexUtils';
+
 
 
 
@@ -145,137 +153,6 @@ const steps = [
   { id: FormStep.Appendices, label: 'APÉNDICES', icon: <Paperclip size={18} /> },
 ];
 
-const calculateRowAvgs = (row: MeasurementRow, series: DataSeries) => {
-  const dVals = row.d.slice(0, series.numRepetitionsDep).map(v => parseNum(v)).filter(v => !isNaN(v));
-  const iVals = row.i.slice(0, series.numRepetitionsIndep).map(v => parseNum(v)).filter(v => !isNaN(v));
-
-  const dAvgRaw = dVals.length > 0 ? dVals.reduce((a, b) => a + b, 0) / dVals.length : 0;
-  const iAvgRaw = iVals.length > 0 ? iVals.reduce((a, b) => a + b, 0) / iVals.length : 0;
-
-  return {
-    dAvg: dAvgRaw * series.varDep.multiplier,
-    iAvg: iAvgRaw * series.varIndep.multiplier,
-    dAvgRaw,
-    iAvgRaw,
-    dX: parseNum(row.dX) || series.varIndep.uncertainty,
-    dY: parseNum(row.dY) || series.varDep.uncertainty,
-    getExtraAvg: (evId: string) => {
-      const ev = series.extraVariables.find(e => e.id === evId);
-      if (!ev) return 0;
-      const reps = ev.numRepetitions || 1;
-      let sum = 0;
-      let count = 0;
-      for (let i = 0; i < reps; i++) {
-        const rawVal = row.others[`${evId}_${i}`] || (i === 0 ? row.others[evId] : '');
-        const val = parseNum(rawVal);
-        if (!isNaN(val)) { sum += val; count++; }
-      }
-      return count > 0 ? (sum / count) * (ev.multiplier || 1) : 0;
-    }
-  };
-};
-
-const evaluateFormula = (formula: string, values: Record<string, number>): number => {
-  try {
-    let parsed = formula.includes('=') ? formula.split('=').pop()! : formula;
-    // Sort keys by length descending to replace longer symbols first
-    const keys = Object.keys(values).sort((a, b) => b.length - a.length);
-
-    keys.forEach(sym => {
-      // Use regex to replace whole words only, case-sensitive
-      parsed = parsed.replace(new RegExp(`\\b${sym}\\b`, 'g'), values[sym].toString());
-    });
-
-    // Sanitization & Math functions mapping
-    parsed = parsed.replace(/\bsqrt\b/g, 'Math.sqrt')
-      .replace(/\bsin\b/g, 'Math.sin')
-      .replace(/\bcos\b/g, 'Math.cos')
-      .replace(/\btan\b/g, 'Math.tan')
-      .replace(/\blog\b/g, 'Math.log10')
-      .replace(/\bln\b/g, 'Math.log')
-      .replace(/\^/g, '**')
-      .replace(/\bpi\b/g, 'Math.PI')
-      .replace(/\be\b/g, 'Math.E');
-
-    // Security check: only allow digits, arithmetic, parens, and Math.
-    if (!/^[\d\.\+\-\*\/\(\)\sMath\.\w]+$/.test(parsed)) return NaN;
-
-    return new Function(`return (${parsed})`)();
-  } catch (e) {
-    return NaN;
-  }
-};
-
-const calculateIndirectValues = (row: MeasurementRow, series: DataSeries) => {
-  const { iAvg, dAvg, dX, dY, getExtraAvg } = calculateRowAvgs(row, series);
-  const symX = series.varIndep.symbol || 'x';
-  const symY = series.varDep.symbol || 'y';
-
-  const baseValues = { [symX]: iAvg, [symY]: dAvg };
-
-  const extraValues = series.extraVariables.reduce((acc, ev) => {
-    const val = getExtraAvg(ev.id);
-    return { ...acc, [ev.symbol]: isNaN(val) ? 0 : val };
-  }, {});
-
-  let currentContext = { ...baseValues, ...extraValues };
-  const results: (IndirectVariable & { value: number; error: number; relError: number; pctError: number })[] = [];
-
-  series.indirectVariables.forEach(iv => {
-    const val = evaluateFormula(iv.formula, currentContext);
-
-    let error = 0;
-    try {
-      const delta = 1e-5;
-      const d_dx = (evaluateFormula(iv.formula, { ...currentContext, [symX]: iAvg + delta }) - val) / delta;
-      const d_dy = (evaluateFormula(iv.formula, { ...currentContext, [symY]: dAvg + delta }) - val) / delta;
-
-      let variance = Math.pow(d_dx * dX, 2) + Math.pow(d_dy * dY, 2);
-
-      series.extraVariables.forEach(ev => {
-        const evSym = ev.symbol;
-        const evVal = getExtraAvg(ev.id);
-        const rowUnc = parseFloat(row.others[`${ev.id}_unc`] || ev.uncertainty.toString() || '0');
-        const val_p = evaluateFormula(iv.formula, { ...currentContext, [evSym]: evVal + delta });
-        const d_dev = (val_p - val) / delta;
-        variance += Math.pow(d_dev * rowUnc, 2);
-      });
-
-      error = Math.sqrt(variance);
-    } catch (e) { error = NaN; }
-
-    const relError = Math.abs(val) > 1e-15 ? error / Math.abs(val) : 0;
-    const pctError = relError * 100;
-
-    if (iv.symbol) {
-      currentContext = { ...currentContext, [iv.symbol]: isNaN(val) ? 0 : val };
-    }
-
-    results.push({ ...iv, value: val, error: error, relError, pctError });
-  });
-
-  return results;
-};
-
-const getRegressionData = (series: DataSeries): RegressionRow[] => {
-  return series.measurements.map(r => {
-    const avgs = calculateRowAvgs(r, series);
-    // Use raw values for regression or averaged? 
-    // Historically we used avgs.iAvg and avgs.dAvg.
-    const x = avgs.iAvg;
-    const y = avgs.dAvg;
-
-    // For consistency with display which often uses rounded values, we might want to round here.
-    // But for regression accuracy, raw logic is better. Reverting to logic found in previous turns.
-    return {
-      n: r.n,
-      x, y,
-      x2: x * x,
-      y2: y * y,
-      xy: x * y
-    };
-  }).filter(r => (r.y !== 0 || r.x !== 0) && !isNaN(r.y) && !isNaN(r.x));
-};
 
 const imageToBase64 = (url: string): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -299,432 +176,6 @@ const imageToBase64 = (url: string): Promise<string> => {
   });
 };
 
-const ExtraVarPanel = ({ series, onUpdate }: { series: DataSeries, onUpdate: (vars: VariableConfig[]) => void }) => {
-  const [newVar, setNewVar] = useState<Partial<VariableConfig>>({ name: '', symbol: '', unit: '', uncertainty: 0, multiplier: 1 });
-
-  const [editingId, setEditingId] = useState<string | null>(null);
-
-  const handleAddOrUpdate = () => {
-    if (!newVar.name || !newVar.symbol) return;
-
-    if (editingId) {
-      const updated = series.extraVariables.map(v => v.id === editingId ? { ...v, ...newVar } as VariableConfig : v);
-      onUpdate(updated);
-      setEditingId(null);
-    } else {
-      const v: VariableConfig = {
-        id: `ev-${Date.now()}`,
-        name: newVar.name,
-        symbol: newVar.symbol,
-        unit: newVar.unit || '',
-        multiplier: newVar.multiplier || 1,
-        uncertainty: newVar.uncertainty || 0,
-        numRepetitions: newVar.numRepetitions || 1
-      };
-      onUpdate([...series.extraVariables, v]);
-    }
-    setNewVar({ name: '', symbol: '', unit: '', uncertainty: 0, multiplier: 1, numRepetitions: 1 });
-  };
-
-  const handleEdit = (v: VariableConfig) => {
-    setNewVar(v);
-    setEditingId(v.id);
-  };
-
-
-  return (
-    <div className="bg-white p-8 rounded-[3rem] shadow-xl border-2 border-slate-50 mb-10">
-      <div className="flex items-center space-x-3 mb-6">
-        <div className="p-2 bg-emerald-100/50 rounded-xl text-emerald-600"><Settings size={20} /></div>
-        <h4 className="font-black text-emerald-900 uppercase tracking-widest text-xs">Variables Adicionales de Medida (Parámetros)</h4>
-      </div>
-
-      <div className="grid grid-cols-12 gap-4 bg-slate-50 p-6 rounded-[2rem] border-2 border-slate-100 items-end">
-        <div className="col-span-3">
-          <InputMini label="Nombre (ej. Masa)" value={newVar.name} onChange={v => setNewVar({ ...newVar, name: v })} />
-        </div>
-        <div className="col-span-2">
-          <InputMini label="Símbolo (ej. \rho)" value={newVar.symbol} onChange={v => setNewVar({ ...newVar, symbol: v })} />
-          <span className="text-[9px] text-slate-400 block mt-1">Usa LaTeX: \rho, \theta, \Delta</span>
-        </div>
-        <div className="col-span-2">
-          <InputMini label="Unidad (kg)" value={newVar.unit} onChange={v => setNewVar({ ...newVar, unit: v })} />
-        </div>
-        <div className="col-span-2">
-          <SmartNumberInput label="Factor" value={newVar.multiplier} onChange={(v: number) => setNewVar({ ...newVar, multiplier: v || 1 })} />
-        </div>
-        <div className="col-span-1">
-          <InputMini label="Reps" type="number" value={newVar.numRepetitions || 1} onChange={v => setNewVar({ ...newVar, numRepetitions: parseInt(v) || 1 })} />
-        </div>
-        <div className="col-span-2">
-          <SmartNumberInput label="Incertidumbre (+/-)" value={newVar.uncertainty} onChange={(v: number) => setNewVar({ ...newVar, uncertainty: v || 0 })} />
-        </div>
-        <div className="col-span-3">
-          <button onClick={handleAddOrUpdate} className={`w-full text-white p-3 rounded-xl transition-colors shadow-lg text-[10px] font-black uppercase tracking-widest flex items-center justify-center ${editingId ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-200' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200'}`}>
-            {editingId ? <Edit3 size={16} className="mr-2" /> : <Plus size={16} className="mr-2" />}
-            {editingId ? 'ACTUALIZAR' : 'AGREGAR'}
-          </button>
-          {editingId && <button onClick={() => { setEditingId(null); setNewVar({ name: '', symbol: '', unit: '', uncertainty: 0, multiplier: 1, numRepetitions: 1 }); }} className="w-full mt-2 text-[9px] font-black uppercase text-slate-400 hover:text-slate-600">Cancelar Edición</button>}
-        </div>
-      </div>
-
-      {series.extraVariables.length > 0 && (
-        <div className="mt-6 space-y-2">
-          {series.extraVariables.map(ev => (
-            <div key={ev.id} className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-              <div className="flex items-center space-x-4">
-                <span className="font-mono font-black text-emerald-800 bg-emerald-50 px-2 py-1 rounded text-xs">{ev.symbol}</span>
-                <span className="text-[11px] font-bold text-slate-600 uppercase">{ev.name} <span className="text-slate-300 mx-2">|</span> <span className="normal-case text-slate-400">Unidad: {ev.unit}</span> <span className="text-slate-300 mx-2">|</span> <span className="normal-case text-slate-400">x{ev.multiplier}</span> <span className="text-slate-300 mx-2">|</span> <span className="normal-case text-slate-400">Δ: {ev.uncertainty}</span></span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <button onClick={() => handleEdit(ev)} className="text-blue-200 hover:text-blue-500 transition-colors bg-blue-50 p-1.5 rounded-lg"><Settings size={14} /></button>
-                <button onClick={() => onUpdate(series.extraVariables.filter(v => v.id !== ev.id))} className="text-red-200 hover:text-red-500 transition-colors bg-red-50 p-1.5 rounded-lg"><Trash2 size={14} /></button>
-              </div>            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
-const renderErrorFormula = (iv: IndirectVariable, series: DataSeries) => {
-  const syms: { sym: string; dSym: string; val: number; unc: number }[] = [];
-  const row1 = series.measurements[0];
-  if (!row1) return '';
-
-  const { iAvg, dAvg, dX, dY, getExtraAvg } = calculateRowAvgs(row1, series);
-  const indirects = calculateIndirectValues(row1, series);
-
-  // 1. Detect Independent (Case Sensitive)
-  if (new RegExp(`\\b${series.varIndep.symbol}\\b`).test(iv.formula)) {
-    syms.push({ sym: series.varIndep.symbol, dSym: `\\Delta ${series.varIndep.symbol}`, val: iAvg, unc: dX });
-  }
-  // 2. Detect Dependent (Case Sensitive)
-  if (new RegExp(`\\b${series.varDep.symbol}\\b`).test(iv.formula)) {
-    syms.push({ sym: series.varDep.symbol, dSym: `\\Delta ${series.varDep.symbol}`, val: dAvg, unc: dY });
-  }
-  // 3. Detect Extra Variables (Case Sensitive)
-  series.extraVariables.forEach(ev => {
-    if (new RegExp(`\\b${ev.symbol}\\b`).test(iv.formula)) {
-      const unc = parseFloat(row1.others[`${ev.id}_unc`] || ev.uncertainty.toString() || '0');
-      syms.push({ sym: ev.symbol, dSym: `\\Delta ${ev.symbol}`, val: getExtraAvg(ev.id), unc });
-    }
-  });
-  // 4. Detect previous Indirect Variables (Case Sensitive)
-  series.indirectVariables.forEach(prevIv => {
-    if (prevIv.id !== iv.id && new RegExp(`\\b${prevIv.symbol}\\b`).test(iv.formula)) {
-      const calc = indirects.find(res => res.id === prevIv.id);
-      if (calc) {
-        syms.push({ sym: prevIv.symbol, dSym: `\\Delta ${prevIv.symbol}`, val: calc.value, unc: calc.error });
-      }
-    }
-  });
-
-  if (syms.length === 0) return '';
-
-  const delta = 1e-6;
-  const context = syms.reduce((acc, s) => ({ ...acc, [s.sym]: s.val }), {});
-  const baseVal = evaluateFormula(iv.formula, context);
-
-  // Power factor detection and relative notation
-  const theoreticalTerms: string[] = [];
-  const numTerms: string[] = [];
-  let totalRelVar = 0;
-
-  syms.forEach(s => {
-    const perturbed = { ...context, [s.sym]: s.val + delta };
-    const partial = (evaluateFormula(iv.formula, perturbed) - baseVal) / delta;
-
-    // n_i factor (power/coefficient)
-    const n_iRaw = (Math.abs(baseVal) > 1e-15 && Math.abs(s.val) > 1e-15) ? (s.val / baseVal) * partial : 1;
-    const n_i = Math.abs(Math.round(n_iRaw * 2) / 2 - n_iRaw) < 0.05 ? Math.round(n_iRaw * 2) / 2 : n_iRaw;
-    const n_i_abs = Math.abs(n_i);
-    const n_i_fmt = (n_i_abs === 1) ? "" : (n_i_abs === 0.5 ? "0.5" : n_i_abs.toFixed(1)).replace(/\.0$/, '');
-
-    theoreticalTerms.push(`\\left( ${n_i_fmt} \\frac{\\Delta ${s.sym}}{${s.sym}} \\right)^2`);
-
-    const relUnc = Math.abs(s.val) > 1e-15 ? s.unc / Math.abs(s.val) : 0;
-    const termVal = n_i * relUnc;
-    totalRelVar += Math.pow(termVal, 2);
-
-    // Explicit fraction substitution for clarity
-    const subFrac = `\\frac{${s.unc.toPrecision(3)}}{${s.val.toPrecision(4)}}`;
-    numTerms.push(`(${n_i_fmt ? n_i_fmt + ' \\cdot ' : ''}${subFrac})^2`);
-  });
-
-  const totalError = Math.abs(baseVal) * Math.sqrt(totalRelVar);
-
-  return `$ ${iv.symbol} = ${baseVal.toPrecision(4)}; \\quad \\Delta ${iv.symbol} = |${iv.symbol}| \\sqrt{ ${theoreticalTerms.join(' + ')} } = ${Math.abs(baseVal).toPrecision(4)} \\sqrt{ ${numTerms.join(' + ')} } \\approx ${totalError.toPrecision(3)} $`;
-};
-
-const IndirectVarPanel: React.FC<{ series: DataSeries; onUpdate: (vars: IndirectVariable[]) => void }> = ({ series, onUpdate }) => {
-  const [newVar, setNewVar] = useState<Partial<IndirectVariable>>({ name: '', symbol: '', unit: '', formula: '' });
-  const [editingId, setEditingId] = useState<string | null>(null);
-
-  const handleAddOrUpdate = () => {
-    if (!newVar.name || !newVar.symbol || !newVar.formula) return;
-
-    if (editingId) {
-      // Update existing
-      const updated = series.indirectVariables.map(v => v.id === editingId ? { ...v, ...newVar } as IndirectVariable : v);
-      onUpdate(updated);
-      setEditingId(null);
-    } else {
-      // Add new
-      const v: IndirectVariable = {
-        id: `ind-${Date.now()}`,
-        name: newVar.name!,
-        symbol: newVar.symbol!,
-        unit: newVar.unit!,
-        formula: newVar.formula!,
-        precision: 3
-      };
-      onUpdate([...series.indirectVariables, v]);
-    }
-    setNewVar({ name: '', symbol: '', unit: '', formula: '' });
-  };
-
-  const handleEdit = (v: IndirectVariable) => {
-    setNewVar(v);
-    setEditingId(v.id);
-  };
-
-  const getErrorTypeSuggestion = (formula: string) => {
-    if (/[*/]/.test(formula) && !/[+\-]/.test(formula)) return "Relativa (Productos/Cocientes)";
-    if (/[+\-]/.test(formula) && !/[*/]/.test(formula)) return "Absoluta (Sumas/Restas)";
-    return "Mixta / Compleja";
-  };
-
-  return (
-    <div className="bg-white p-10 rounded-[3rem] shadow-lg border-2 border-purple-50">
-      <h3 className="text-[10px] font-black text-purple-600 uppercase tracking-widest flex items-center mb-6">
-        <Calculator className="mr-2" size={16} /> Magnitudes Indirectas & Propagación de Errores
-      </h3>
-
-      <div className="flex gap-4 mb-6 flex-wrap">
-        {series.indirectVariables.map(v => (
-          <div key={v.id} onClick={() => handleEdit(v)} className={`flex items-center gap-3 px-4 py-2 rounded-2xl border-2 cursor-pointer hover:scale-105 transition-transform ${editingId === v.id ? 'bg-purple-100 border-purple-300 ring-2 ring-purple-200' : 'bg-purple-50 border-purple-100'}`}>
-            <span className="w-8 h-8 flex items-center justify-center bg-white rounded-lg font-black text-purple-700 text-xs shadow-sm">{v.symbol}</span>
-            <div className="flex flex-col">
-              <span className="text-[9px] font-black uppercase text-purple-400">{v.name}</span>
-              <span className="text-[10px] text-purple-800 font-mono font-bold tracking-tighter opacity-70">{v.formula}</span>
-            </div>
-            <button onClick={(e) => { e.stopPropagation(); onUpdate(series.indirectVariables.filter(iv => iv.id !== v.id)); }} className="ml-2 text-purple-300 hover:text-red-400"><Trash2 size={14} /></button>
-          </div>
-        ))}
-      </div>
-
-      <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-        <div className="md:col-span-3 space-y-1">
-          <label className="text-[9px] font-bold text-slate-400 uppercase ml-2">Nombre</label>
-          <input className="w-full p-3 rounded-xl border-none shadow-sm focus:ring-2 focus:ring-purple-200 text-sm" placeholder="Ej: Velocidad" value={newVar.name} onChange={e => setNewVar({ ...newVar, name: e.target.value })} />
-        </div>
-        <div className="md:col-span-2 space-y-1">
-          <label className="text-[9px] font-bold text-slate-400 uppercase ml-2">Símbolo</label>
-          <input className="w-full p-3 rounded-xl border-none shadow-sm focus:ring-2 focus:ring-purple-200 text-sm font-bold text-purple-700" placeholder="v" value={newVar.symbol} onChange={e => setNewVar({ ...newVar, symbol: e.target.value })} />
-        </div>
-        <div className="md:col-span-2 space-y-1">
-          <label className="text-[9px] font-bold text-slate-400 uppercase ml-2">Unidad</label>
-          <input className="w-full p-3 rounded-xl border-none shadow-sm focus:ring-2 focus:ring-purple-200 text-sm" placeholder="m/s" value={newVar.unit} onChange={e => setNewVar({ ...newVar, unit: e.target.value })} />
-        </div>
-        <div className="md:col-span-4 space-y-1">
-          <label className="text-[9px] font-bold text-slate-400 uppercase ml-2">Fórmula (use {series.varIndep.symbol || 't'}, {series.varDep.symbol || 'x'})</label>
-          <input className="w-full p-3 rounded-xl border-none shadow-sm focus:ring-2 focus:ring-purple-200 text-sm font-mono tracking-wide" placeholder="x / t" value={newVar.formula} onChange={e => setNewVar({ ...newVar, formula: e.target.value })} />
-          {newVar.formula && (
-            <div className="flex flex-col gap-1 mt-1 px-2">
-              <span className="text-[9px] text-purple-400 flex items-center">
-                <Info size={10} className="mr-1" /> Sugerencia: {getErrorTypeSuggestion(newVar.formula)}
-              </span>
-              {/* PREVIEW ERROR FORMULA */}
-              <span className="text-[10px] text-slate-600 mt-1 block" dangerouslySetInnerHTML={{ __html: renderLatexToHtml(renderErrorFormula({ ...newVar, symbol: newVar.symbol || 'Z' } as IndirectVariable, series)) }} />
-            </div>
-          )}
-        </div>
-        <div className="md:col-span-1">
-          <button onClick={handleAddOrUpdate} className="w-full p-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl shadow-lg shadow-purple-200 transition-all active:scale-95 flex items-center justify-center">
-            {editingId ? <ArrowUp size={20} /> : <Plus size={20} />}
-          </button>
-        </div>
-      </div>
-      <p className="text-[9px] text-slate-400 mt-4 ml-2 font-medium">
-        * Use los símbolos definidos de las variables inde/dep y variables extra. Funciones soportadas: sqrt, sin, cos, tan, log, ln, ^.
-        La incertidumbre se calculará automáticamente usando derivadas numéricas de acuerdo a la ecuación mostrada.
-      </p>
-    </div>
-  );
-};
-
-const VarConfig = ({ title, config, onChange, reps, onRepsChange }: any) => (
-  <div className="space-y-6">
-    <h4 className="text-[10px] font-black text-[#004b87] uppercase tracking-[0.2em] border-b-2 border-[#9e1b32] pb-3 flex items-center"><Layers size={18} className="mr-3 text-[#9e1b32]" /> {title}</h4>
-    <div className="grid grid-cols-6 gap-5">
-      <div className="col-span-2">
-        <InputMini label="Nombre de Variable" value={config.name} onChange={v => onChange({ ...config, name: v })} />
-      </div>
-      <div className="col-span-1">
-        <InputMini label="Símbolo" value={config.symbol || (title.includes('Independiente') ? 'x' : 'y')} onChange={v => onChange({ ...config, symbol: v })} />
-      </div>
-      <div className="col-span-1">
-        <InputMini label="Unidad" value={config.unit} onChange={v => onChange({ ...config, unit: v })} />
-      </div>
-      <div className="col-span-1">
-        <SmartNumberInput label="Factor" value={config.multiplier} onChange={(v: number) => onChange({ ...config, multiplier: v || 1 })} />
-      </div>
-      <div className="col-span-1">
-        <SmartNumberInput label="Incertidumbre Δ" value={config.uncertainty} onChange={(v: number) => onChange({ ...config, uncertainty: v || 0 })} />
-      </div>
-    </div>
-    <div className="flex items-center space-x-4 bg-slate-50 p-4 rounded-3xl border border-slate-100 shadow-inner">
-      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Repeticiones:</span>
-      <div className="flex items-center space-x-3">
-        <button onClick={() => onRepsChange(Math.max(1, reps - 1))} className="text-slate-300 hover:text-red-500 transition-colors"><MinusCircle size={18} /></button>
-        <input type="number" min="1" max="10" className="w-16 p-2 rounded-xl border-2 border-slate-100 text-center font-black text-[#004b87] focus:ring-4 focus:ring-blue-100 outline-none transition-all" value={reps} onChange={e => onRepsChange(parseInt(e.target.value) || 1)} />
-        <button onClick={() => onRepsChange(Math.min(10, reps + 1))} className="text-slate-300 hover:text-green-500 transition-colors"><PlusCircle size={18} /></button>
-      </div>
-    </div>
-  </div>
-);
-
-const EstimationPanel = ({ series }: { series: DataSeries }) => {
-  const regressionData = getRegressionData(series);
-  const stats = calculateStats(regressionData);
-  if (!stats) return null;
-
-  const fmtM = formatMeasure(stats.m, stats.sigmaM);
-  const fmtB = formatMeasure(stats.b, stats.sigmaB);
-
-  const toLatexSci = (num: number) => {
-    if (Math.abs(num) < 0.01 || Math.abs(num) >= 10000) {
-      const exp = num.toExponential(4);
-      const [m, e] = exp.split('e');
-      return `${m} \\times 10^{${parseInt(e)}}`;
-    }
-    return num.toFixed(4);
-  };
-
-  const FormulaItem = ({ formula, value, displayStyle = "small" }: { formula: string, value: string | number, displayStyle?: "small" | "medium" | "large" }) => (
-    <div className="flex items-center space-x-4">
-      <div className={`overflow-x-auto ${displayStyle === 'large' ? 'min-w-[150px]' : displayStyle === 'medium' ? 'min-w-[120px]' : 'min-w-[80px]'}`}>
-        <div className="text-blue-900/90 font-medium whitespace-nowrap" dangerouslySetInnerHTML={{ __html: renderMathOnly(`$${formula}$`) }} />
-      </div>
-      <div className="bg-white border-2 border-slate-200 px-4 py-2.5 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] text-[#004b87] font-mono font-black text-[12px] min-w-[140px] text-center">
-        {value}
-      </div>
-    </div>
-  );
-
-  const SubstitutionCard = ({ title, formula, sub, result }: { title: string, formula: string, sub: string, result: string }) => (
-    <div className="bg-white p-6 rounded-[2.5rem] border-2 border-slate-100 shadow-sm space-y-3 group hover:border-[#004b87]/20 transition-all">
-      <div className="flex justify-between items-center border-b border-slate-50 pb-2">
-        <span className="text-[9px] font-black text-[#004b87] uppercase tracking-widest">{title}</span>
-        <span className="text-[10px] font-mono font-black text-[#9e1b32]">{result}</span>
-      </div>
-      <div className="space-y-2">
-        <div className="text-xs text-slate-400 font-medium" dangerouslySetInnerHTML={{ __html: renderMathOnly(`$${formula}$`) }} />
-        <div className="text-[10px] text-[#004b87] font-mono whitespace-normal leading-relaxed opacity-0 group-hover:opacity-100 transition-opacity" dangerouslySetInnerHTML={{ __html: renderMathOnly(`$\\approx ${sub}$`) }} />
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="bg-white rounded-[3rem] shadow-2xl border-4 border-[#004b87] overflow-hidden mb-16 relative">
-      <div className="bg-[#004b87] px-12 py-5 flex justify-between items-center border-b-4 border-[#9e1b32]">
-        <h3 className="text-white font-black uppercase text-[11px] tracking-[0.3em] flex items-center">
-          <Calculator size={20} className="mr-4 text-blue-300" /> AJUSTE DE CURVA (MÍNIMOS CUADRADOS)
-        </h3>
-        <div className="bg-[#9e1b32] text-white text-[10px] px-5 py-2 rounded-full font-black shadow-xl tracking-widest border-b-2 border-black/20">N = {stats.n}</div>
-      </div>
-
-      <div className="p-16 grid-bg bg-white relative">
-        <div className="grid grid-cols-12 gap-y-10 items-start">
-          <div className="col-span-4 space-y-6">
-            <FormulaItem formula="n =" value={stats.n} />
-            <FormulaItem formula={"\\sum_{i=1}^n x_i ="} value={stats.sumX.toExponential(4)} />
-            <FormulaItem formula={"\\sum_{i=1}^n y_i ="} value={stats.sumY.toExponential(4)} />
-            <FormulaItem formula={"\\sum_{i=1}^n x_i^2 ="} value={stats.sumX2.toExponential(4)} />
-            <FormulaItem formula={"\\sum_{i=1}^n x_iy_i ="} value={stats.sumXY.toExponential(4)} />
-            <FormulaItem formula={"\\Delta = n \\sum x_i^2 - (\\sum x_i)^2 ="} value={stats.delta.toExponential(4)} displayStyle="large" />
-          </div>
-
-          <div className="col-span-8 space-y-8 pl-10 border-l-4 border-slate-100">
-            <div className="grid grid-cols-2 gap-x-12 gap-y-6">
-              <FormulaItem formula="M =" value={fmtM.val} displayStyle="medium" />
-              <FormulaItem formula={"\\sigma_M ="} value={fmtM.unc} displayStyle="medium" />
-              <FormulaItem formula="B =" value={fmtB.val} displayStyle="medium" />
-              <FormulaItem formula={"\\sigma_B ="} value={fmtB.unc} displayStyle="medium" />
-              <FormulaItem formula={"\\sigma_y ="} value={stats.sigmaY.toExponential(4)} displayStyle="medium" />
-              <FormulaItem formula="r^2 =" value={stats.r2.toFixed(6)} displayStyle="medium" />
-            </div>
-
-            <div className="mt-10 pt-10 border-t-2 border-slate-100 text-center">
-              <div className="inline-block px-10 py-2 bg-slate-100 rounded-full text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] mb-6 border-2 border-slate-200">Modelo Matemático Resultante</div>
-              <div className="bg-blue-50/50 p-8 rounded-[3.5rem] border-4 border-blue-100/50 font-mono text-[#004b87] font-black text-3xl shadow-2xl backdrop-blur-md inline-block min-w-[500px]">
-                <div dangerouslySetInnerHTML={{ __html: renderMathOnly(`$y = (${fmtM.val} \\pm ${fmtM.unc})x + (${fmtB.val} \\pm ${fmtB.unc})$`) }} />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-16 pt-12 border-t-4 border-slate-50">
-          <div className="flex items-center space-x-4 mb-8">
-            <div className="h-px bg-slate-200 flex-1"></div>
-            <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em]">Desglose de Parámetros</span>
-            <div className="h-px bg-slate-200 flex-1"></div>
-          </div>
-          <div className="grid grid-cols-2 gap-6">
-            <SubstitutionCard
-              title="Pendiente (M)"
-              formula="M = \frac{n \sum xy - \sum x \sum y}{\Delta}"
-              sub={`\frac{${stats.n}(${toLatexSci(stats.sumXY)}) - (${toLatexSci(stats.sumX)})(${toLatexSci(stats.sumY)})}{${toLatexSci(stats.delta)}}`}
-              result={fmtM.val}
-            />
-            <SubstitutionCard
-              title="Intercepto (B)"
-              formula="B = \frac{\sum x^2 \sum y - \sum x \sum xy}{\Delta}"
-              sub={`\frac{(${toLatexSci(stats.sumX2)})(${toLatexSci(stats.sumY)}) - (${toLatexSci(stats.sumX)})(${toLatexSci(stats.sumXY)})}{${toLatexSci(stats.delta)}}`}
-              result={fmtB.val}
-            />
-            <SubstitutionCard
-              title="Error Pendiente (\sigma_M)"
-              formula="\sigma_M = \sigma_y \sqrt{\frac{n}{\Delta}}"
-              sub={` ${toLatexSci(stats.sigmaY)} \sqrt{\frac{${stats.n}}{${toLatexSci(stats.delta)}}}`}
-              result={fmtM.unc}
-            />
-            <SubstitutionCard
-              title="Error Intercepto (\sigma_B)"
-              formula="\sigma_B = \sigma_y \sqrt{\frac{\sum x^2}{\Delta}}"
-              sub={` ${toLatexSci(stats.sigmaY)} \sqrt{\frac{${toLatexSci(stats.sumX2)}}{${toLatexSci(stats.delta)}}}`}
-              result={fmtB.unc}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const SmartNumberInput = ({ value, onChange, ...props }: any) => {
-  const [str, setStr] = useState(value?.toString() || '');
-  useEffect(() => {
-    const currentParsed = parseNum(str);
-    if (typeof value === 'number' && !isNaN(value) && Math.abs(value - currentParsed) > 1e-9) {
-      setStr(value.toString());
-    }
-  }, [value]);
-  const handleChange = (val: string) => {
-    setStr(val);
-    const num = parseNum(val);
-    if (!isNaN(num)) { onChange(num); }
-  };
-  return <InputMini {...props} value={str} onChange={handleChange} />;
-};
-
-const InputMini = ({ label, value, onChange, type = "text", ...props }: any) => (
-  <div className="space-y-1">
-    <label className="text-[9px] font-black text-slate-400 uppercase ml-3 tracking-[0.1em]">{label}</label>
-    <input type={type} step="any" className="w-full p-4 rounded-[1.5rem] border-2 border-slate-50 shadow-inner bg-slate-50/50 text-xs font-black outline-none focus:bg-white focus:ring-4 focus:ring-blue-100 transition-all text-[#004b87]" value={value} onChange={e => onChange(e.target.value)} {...props} />
-  </div>
-);
 
 const Input = ({ label, value, onChange, type = "text" }: any) => (
   <div className="space-y-2">
@@ -822,77 +273,6 @@ const Section = ({ title, value, onChange, rows = 4, help, report, updateReport 
     </div>
   );
 };
-
-const renderLatexToHtml = (text: string, images: Record<string, string> = {}) => {
-  if (!text) return '';
-  let p = text.replace(/\\\\/g, '<br />');
-
-  // Figure environment: \begin{figure} ... \includegraphics{...} \caption{...} \label{...} \end\{figure\}
-  p = p.replace(/\\begin\s*(?:\[.*?\])?\s*\{figure\}\s*(?:\[.*?\])?([\s\S]*?)\\end\{figure\}/g, (_, content) => {
-    const captionMatch = content.match(/\\caption\s*\{([\s\S]*?)\}/);
-    const labelMatch = content.match(/\\label\s*\{([\s\S]*?)\}/);
-    const imgMatch = content.match(/\\includegraphics\s*(?:\[(.*?)\])?\s*\{([\s\S]*?)\}/);
-
-    const caption = captionMatch ? captionMatch[1] : '';
-    const label = labelMatch ? labelMatch[1] : '';
-    const options = imgMatch ? (imgMatch[1] || '') : '';
-    const imgSrc = imgMatch ? (imgMatch[2] || '') : '';
-    const finalSrc = images[imgSrc] || imgSrc;
-
-    let imgStyle = "max-width: 100%; max-height: 9cm; object-fit: contain; border-radius: 1rem;";
-    if (options) {
-      const widthMatch = options.match(/width\s*=\s*([\d.]+)\s*(\\linewidth|\\textwidth|cm|mm|px|%|in|pt)?/);
-      if (widthMatch) {
-        const val = widthMatch[1];
-        const unit = widthMatch[2] || '';
-        if (unit === '\\linewidth' || unit === '\\textwidth') {
-          // Force width to be exact percentage of container
-          imgStyle = `width: ${parseFloat(val) * 100}%; max-width: none; height: auto; border-radius: 1rem;`;
-        } else if (unit) {
-          imgStyle = `width: ${val + unit}; max-width: 100%; height: auto; border-radius: 1rem;`;
-        } else if (val.includes('%')) {
-          imgStyle = `width: ${val}; max-width: none; height: auto; border-radius: 1rem;`;
-        } else {
-          // Default to px if no unit
-          imgStyle = `width: ${val}px; max-width: 100%; height: auto; border-radius: 1rem;`;
-        }
-      }
-    }
-
-    return `
-    <div class="my-10 flex flex-col items-center">
-      <div class="bg-white p-4 rounded-[2rem] shadow-xl border-2 border-slate-50 relative overflow-hidden flex justify-center">
-        <img src="${finalSrc}" alt="${caption}" style="${imgStyle}" />
-      </div>
-      ${caption ? `<p class="mt-4 text-[11px] font-bold text-slate-500 text-center px-10 leading-relaxed uppercase tracking-widest"><span class="text-[#004b87] font-black">${label ? `Figura (${label}):` : 'Figura:'}</span> ${caption}</p>` : ''}
-    </div>
-    `;
-  });
-
-  p = p.replace(/\\begin\{enumerate\}([\s\S]*?)\\end\{enumerate\}/g, (_, c) => `<ol>${c.split('\\item').filter((i: any) => i.trim()).map((i: any) => `<li>${renderMathOnly(i.trim())}</li>`).join('')}</ol>`);
-  p = p.replace(/\\begin\{itemize\}([\s\S]*?)\\end\{itemize\}/g, (_, c) => `<ul>${c.split('\\item').filter((i: any) => i.trim()).map((i: any) => `<li>${renderMathOnly(i.trim())}</li>`).join('')}</ul>`);
-
-  // Image Markdown support (backwards compat)
-  p = p.replace(/!\[(.*?)\]\((.*?)\)/g, (_, alt, src) => {
-    const finalSrc = images[src] || src;
-    return `<div class="my-6 flex justify-center"><img src="${finalSrc}" alt="${alt}" style="max-width: 100%; max-height: 9cm; object-fit: contain; border-radius: 1rem; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);" /></div>`;
-  });
-
-  return renderMathOnly(p);
-};
-
-const renderMathOnly = (text: string) => text.replace(/\$([^$]+)\$/g, (_, f) => {
-  try {
-    return katex.renderToString(f, {
-      throwOnError: false,
-      displayMode: false,
-      strict: false,
-      trust: true
-    });
-  } catch (e) {
-    return f;
-  }
-});
 
 const RegressionTable = ({ series }: { series: DataSeries }) => {
   const regressionData = getRegressionData(series);
@@ -1093,7 +473,7 @@ const App: React.FC = () => {
     return () => clearTimeout(timer);
   }, [report.desmosLink]);
 
-  const updateReport = (updates: Partial<LabReport>) => {
+  const updateReport = useCallback((updates: Partial<LabReport>) => {
     setReport(prev => {
       const updated = { ...prev, ...updates };
       if (updates.varIndep?.uncertainty !== undefined) {
@@ -1117,7 +497,7 @@ const App: React.FC = () => {
       }
       return updated;
     });
-  };
+  }, []);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, field: keyof LabReport) => {
     const file = e.target.files?.[0];
@@ -1221,6 +601,8 @@ const App: React.FC = () => {
     if (!container) return null;
 
     try {
+      const html2canvasModule = await import('html2canvas');
+      const html2canvas = html2canvasModule.default;
       const canvas = await html2canvas(container, { scale: 2, useCORS: true, logging: false });
       const ratio = canvas.height / canvas.width;
       return {
@@ -1234,7 +616,7 @@ const App: React.FC = () => {
   };
 
   /* ---------------------- HELPER FOR UPDATES ---------------------- */
-  const updateActiveSeries = (updates: Partial<DataSeries>) => {
+  const updateActiveSeries = useCallback((updates: Partial<DataSeries>) => {
     setReport(prev => {
       const newSeriesList = [...prev.dataSeries];
       const currentIndex = prev.activeSeriesIndex;
@@ -1270,7 +652,20 @@ const App: React.FC = () => {
       newSeriesList[currentIndex] = updated;
       return { ...prev, dataSeries: newSeriesList };
     });
-  };
+  }, []);
+
+  const handleRowChange = useCallback((idx: number, updatedRow: any) => {
+    setReport(prev => {
+      const newSeriesList = [...prev.dataSeries];
+      const currentIndex = prev.activeSeriesIndex;
+      const current = newSeriesList[currentIndex];
+      const nr = [...current.measurements];
+      nr[idx] = updatedRow;
+      const updated = { ...current, measurements: nr };
+      newSeriesList[currentIndex] = updated;
+      return { ...prev, dataSeries: newSeriesList };
+    });
+  }, []);
 
   /* ---------------------- DROP HANDLER FOR VARIABLES ---------------------- */
   const handleVarDrop = (e: React.DragEvent, targetRole: 'indep' | 'dep') => {
@@ -1387,6 +782,9 @@ const App: React.FC = () => {
 
   const handleDownloadPDF = async () => {
     setIsGenerating(true);
+    // Dinamically import jsPDF
+    const jsPDFModule = await import('jspdf');
+    const jsPDF = jsPDFModule.jsPDF;
     const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -2448,90 +1846,15 @@ const App: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {activeSeries.measurements.map((row, idx) => {
-                      const { dAvgRaw, iAvgRaw, getExtraAvg } = calculateRowAvgs(row, activeSeries);
-                      const indirectVals = calculateIndirectValues(row, activeSeries);
-
-                      const fmtX = formatMeasure(iAvgRaw, parseNum(row.dX) || activeSeries.varIndep.uncertainty);
-                      const fmtY = formatMeasure(dAvgRaw, parseNum(row.dY) || activeSeries.varDep.uncertainty);
-
-                      return (
-                        <tr key={idx} className="border-b-2 border-slate-50 hover:bg-slate-50 transition-colors group">
-                          <td className="p-4 text-center bg-slate-50/50 font-black text-slate-400 border-r-2 border-slate-50">{idx + 1}</td>
-
-                          {/* Extra Vars Inputs omitted for brevity, keeping same logic */}
-                          {activeSeries.extraVariables.map(ev => {
-                            const val = getExtraAvg(ev.id);
-                            const unc = parseFloat(row.others[`${ev.id}_unc`] || ev.uncertainty.toString() || '0');
-                            const fmt = formatMeasure(val / (ev.multiplier || 1), unc / (ev.multiplier || 1));
-                            return (
-                              <React.Fragment key={ev.id}>
-                                {Array.from({ length: ev.numRepetitions || 1 }).map((_, rIdx) => (
-                                  <td key={`${ev.id}-${rIdx}`} className="p-0 border-r border-slate-100 min-w-[80px]">
-                                    <input className="w-full p-4 text-center bg-transparent focus:bg-white focus:ring-4 focus:ring-emerald-100 outline-none font-medium transition-all"
-                                      value={row.others[`${ev.id}_${rIdx}`] !== undefined ? row.others[`${ev.id}_${rIdx}`] : (rIdx === 0 ? (row.others[ev.id] || '') : '')}
-                                      placeholder={`${ev.symbol}${rIdx + 1}`}
-                                      onChange={e => {
-                                        const nr = activeSeries.measurements.map((m, i) => i === idx ? { ...m, others: { ...m.others, [`${ev.id}_${rIdx}`]: e.target.value } } : m);
-                                        updateActiveSeries({ measurements: nr });
-                                      }} />
-                                  </td>
-                                ))}
-                                <td className="p-4 text-center bg-emerald-100/30 font-black text-emerald-900 text-xs border-r-2 border-slate-100">
-                                  {fmt.val}
-                                </td>
-                                <td className="p-0 border-r border-slate-100 bg-emerald-50/20">
-                                  <input className="w-full p-4 text-center bg-transparent focus:bg-white focus:ring-4 focus:ring-emerald-100 outline-none font-bold text-emerald-700 transition-all text-[10px]"
-                                    value={row.others[`${ev.id}_unc`] || ''}
-                                    placeholder={`±${ev.uncertainty}`}
-                                    onChange={e => {
-                                      const nr = activeSeries.measurements.map((m, i) => i === idx ? { ...m, others: { ...m.others, [`${ev.id}_unc`]: e.target.value } } : m);
-                                      updateActiveSeries({ measurements: nr });
-                                    }} />
-                                </td>
-                              </React.Fragment>
-                            );
-                          })}
-
-                          {/* Independent Data */}
-                          {Array.from({ length: activeSeries.numRepetitionsIndep }).map((_, i) => (
-                            <td key={`i-${i}`} className="p-0 border-r border-slate-100">
-                              <input className={`w-full p-4 text-center bg-transparent focus:bg-white focus:ring-4 focus:ring-blue-100 outline-none font-medium transition-all ${activeSeries.varIndep.isCalculated ? 'bg-purple-50 text-purple-700 font-bold cursor-not-allowed' : ''}`} disabled={activeSeries.varIndep.isCalculated} value={row.i[i]} onChange={e => { const nr = [...activeSeries.measurements]; const newI = [...nr[idx].i]; newI[i] = e.target.value; nr[idx].i = newI; updateActiveSeries({ measurements: nr }); }} />
-                            </td>
-                          ))}
-                          <td className="p-4 text-center bg-emerald-100/30 font-black text-emerald-900 text-xs border-r-2 border-slate-100 group-hover:bg-emerald-100 transition-all">{fmtX.val}</td>
-                          <td className="p-0 bg-emerald-50/20 border-r-2 border-slate-100 table-cell-delta">
-                            <input className="w-full p-4 text-center font-black text-emerald-800 focus:bg-white outline-none" value={row.dX} onChange={e => { const nr = [...activeSeries.measurements]; nr[idx].dX = e.target.value; updateActiveSeries({ measurements: nr }); }} />
-                          </td>
-
-                          {/* Dependent Data */}
-                          {Array.from({ length: activeSeries.numRepetitionsDep }).map((_, i) => (
-                            <td key={`d-${i}`} className="p-0 border-r border-slate-100">
-                              <input className={`w-full p-4 text-center bg-transparent focus:bg-white focus:ring-4 focus:ring-blue-100 outline-none font-medium transition-all ${activeSeries.varDep.isCalculated ? 'bg-purple-50 text-purple-700 font-bold cursor-not-allowed' : ''}`} disabled={activeSeries.varDep.isCalculated} value={row.d[i]} onChange={e => { const nr = [...activeSeries.measurements]; const newD = [...nr[idx].d]; newD[i] = e.target.value; nr[idx].d = newD; updateActiveSeries({ measurements: nr }); }} />
-                            </td>
-                          ))}
-                          <td className="p-4 text-center bg-blue-100/30 font-black text-blue-900 text-xs border-r-2 border-slate-100 group-hover:bg-blue-100 transition-all">{fmtY.val}</td>
-                          <td className="p-0 bg-blue-50/20 border-r-2 border-slate-100 table-cell-delta">
-                            <input className="w-full p-4 text-center font-black text-blue-800 focus:bg-white outline-none" value={row.dY} onChange={e => { const nr = [...activeSeries.measurements]; nr[idx].dY = e.target.value; updateActiveSeries({ measurements: nr }); }} />
-                          </td>
-
-                          {/* Indirect Variables Cells */}
-                          {indirectVals.map(iv => {
-                            const fmt = formatMeasure(iv.value, iv.error);
-                            return (
-                              <React.Fragment key={iv.id}>
-                                <td className="p-4 text-center bg-purple-50/30 font-black text-purple-900 text-xs border-r-2 border-slate-100 group-hover:bg-purple-100 transition-all">
-                                  {fmt.val}
-                                </td>
-                                <td className="p-4 text-center bg-purple-100/50 font-black text-purple-800 text-[10px] border-r-2 border-slate-100 group-hover:bg-purple-200 transition-all">
-                                  {fmt.unc}
-                                </td>
-                              </React.Fragment>
-                            );
-                          })}
-                        </tr>
-                      );
-                    })}
+                    {activeSeries.measurements.map((row, idx) => (
+                      <MeasurementTableRow 
+                        key={idx} 
+                        row={row} 
+                        idx={idx} 
+                        series={activeSeries} 
+                        onChange={handleRowChange} 
+                      />
+                    ))}
                   </tbody>
                 </table>
               </div>
