@@ -841,6 +841,70 @@ const App: React.FC = () => {
         }
       };
 
+      const addPaginatedImage = async (data: string | undefined, x: number, startY: number, renderWidth: number): Promise<number> => {
+        if (!data) return startY;
+        try {
+          let finalData = data;
+          if (!data.startsWith('data:')) {
+            finalData = await imageToBase64(data).catch(() => data);
+          }
+          if (!finalData.match(/^data:image\/(png|jpeg|jpg);base64,/)) return startY;
+          let format = finalData.startsWith('data:image/jpeg') ? 'JPEG' : 'PNG';
+
+          const imgProps = await new Promise<{ width: number, height: number, img: HTMLImageElement }>((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve({ width: img.width, height: img.height, img });
+            img.onerror = reject;
+            img.src = finalData;
+          });
+
+          const pxPerMm = imgProps.width / renderWidth;
+          const totalRenderHeight = imgProps.height / pxPerMm;
+
+          let remainingRenderHeight = totalRenderHeight;
+          let sourceY = 0;
+          let cy = startY;
+
+          while (remainingRenderHeight > 0) {
+            const availableMm = pageBottomLimit - cy;
+            let drawMm = Math.min(remainingRenderHeight, availableMm);
+
+            // Avoid drawing tiny slivers at the bottom of the page
+            if (drawMm < 15 && remainingRenderHeight > 15) {
+              doc.addPage();
+              cy = 20;
+              continue;
+            }
+
+            const drawPx = drawMm * pxPerMm;
+
+            const sliceCanvas = document.createElement('canvas');
+            sliceCanvas.width = imgProps.width;
+            sliceCanvas.height = drawPx;
+            const sCtx = sliceCanvas.getContext('2d');
+            if (sCtx) {
+              sCtx.drawImage(imgProps.img, 0, sourceY, imgProps.width, drawPx, 0, 0, imgProps.width, drawPx);
+              const sliceData = sliceCanvas.toDataURL('image/png');
+              doc.addImage(sliceData, format, x, cy, renderWidth, drawMm, undefined, 'FAST');
+            }
+
+            remainingRenderHeight -= drawMm;
+            sourceY += drawPx;
+
+            if (remainingRenderHeight > 0.5) {
+              doc.addPage();
+              cy = 20;
+            } else {
+              cy += drawMm;
+            }
+          }
+          return cy;
+        } catch (e) {
+          console.error('Error paginating image:', e);
+          return startY;
+        }
+      };
+
       const drawSectionHeader = (title: string, y: number) => {
         doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(...iBlue);
         doc.text(title.toUpperCase(), margin + 2, y);
@@ -1170,9 +1234,15 @@ const App: React.FC = () => {
           // Determine language for highlighting
           const currentBoard = (report.appendices.selectedBoard || 'arduino').toLowerCase();
           let grammar = Prism.languages.clike;
-          if (currentBoard.includes('python')) grammar = Prism.languages.python;
-          else if (currentBoard.includes('script') || currentBoard.includes('js')) grammar = Prism.languages.javascript;
-          else if (currentBoard.includes('arduino') || currentBoard.includes('cpp')) grammar = Prism.languages.cpp;
+          let langClass = 'language-cpp';
+
+          if (currentBoard.includes('python')) {
+            grammar = Prism.languages.python;
+            langClass = 'language-python';
+          } else if (currentBoard.includes('script') || currentBoard.includes('js')) {
+            grammar = Prism.languages.javascript;
+            langClass = 'language-javascript';
+          }
 
           const highlightedCode = Prism.highlight(
             String(report.appendices.codeContent || ''),
@@ -1182,11 +1252,11 @@ const App: React.FC = () => {
 
           // Render Code as HTML for capture with Prism classes
           const codeHtml = `
-            <div style="background: #1e293b; color: #f8f8f2; padding: 16px; border-radius: 8px; font-family: 'Fira Code', monospace; font-size: 10px; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word; border: 1px solid #334155;">
+            <div class="${langClass}" style="background: #1e293b; color: #f8f8f2; padding: 16px; border-radius: 8px; font-family: 'Fira Code', monospace; font-size: 10px; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word; border: 1px solid #334155;">
               <div style="color: #94a3b8; font-size: 9px; margin-bottom: 8px; border-bottom: 1px solid #334155; padding-bottom: 4px;">
                 ${(report.appendices.selectedBoard || 'Código').toUpperCase()}
               </div>
-              <div class="code-highlight content">${highlightedCode}</div>
+              <div class="code-highlight content ${langClass}">${highlightedCode}</div>
             </div>
             <style>
               .token.comment, .token.prolog, .token.doctype, .token.cdata { color: #8292a2; }
@@ -1206,8 +1276,10 @@ const App: React.FC = () => {
 
           const codeCapture = await captureSectionBox(codeHtml, pageWidth - 2 * margin);
           if (codeCapture) {
-            const h = await addSafeImage(codeCapture.data, margin, currentY, pageWidth - 2 * margin, codeCapture.height);
-            currentY += h + 10;
+            const captureWidth = (pageWidth - 2 * margin) * 0.85;
+            const xOffset = margin + ((pageWidth - 2 * margin) - captureWidth) / 2;
+            currentY = await addPaginatedImage(codeCapture.data, xOffset, currentY, captureWidth);
+            currentY += 10;
           }
         }
 
@@ -1221,8 +1293,11 @@ const App: React.FC = () => {
             currentY += 5;
           }
 
-          const schemScale = (report.appendices.schematicScale || 100) / 100;
-          const h = await addSafeImage(report.appendices.cirkitSchematicImage, margin + 10, currentY, 130 * schemScale, 80 * schemScale);
+          const schemScale = ((report.appendices.schematicScale || 100) / 100) * 0.85;
+          const schemWidth = 130 * schemScale;
+          const schemHeight = 80 * schemScale;
+          const schemX = margin + ((pageWidth - 2 * margin) - schemWidth) / 2;
+          const h = await addSafeImage(report.appendices.cirkitSchematicImage, schemX, currentY, schemWidth, schemHeight);
           currentY += (h + 10);
         }
 
@@ -1236,13 +1311,16 @@ const App: React.FC = () => {
             currentY += 5;
           }
 
-          const pinScale = (report.appendices.pinoutScale || 100) / 100;
-          const h = await addSafeImage(report.appendices.pinoutBoardImage, margin + 10, currentY, 130 * pinScale, 80 * pinScale);
+          const pinScale = ((report.appendices.pinoutScale || 100) / 100) * 0.85;
+          const pinWidth = 130 * pinScale;
+          const pinHeight = 80 * pinScale;
+          const pinX = margin + ((pageWidth - 2 * margin) - pinWidth) / 2;
+          const h = await addSafeImage(report.appendices.pinoutBoardImage, pinX, currentY, pinWidth, pinHeight);
 
           if (report.appendices.pinoutBoardName) {
             doc.setFontSize(9);
             doc.setTextColor(100, 100, 100);
-            doc.text(`Placa: ${report.appendices.pinoutBoardName}`, margin + 10, currentY + h + 5);
+            doc.text(`Placa: ${report.appendices.pinoutBoardName}`, pinX, currentY + h + 5);
           }
           currentY += (h + 15);
         }
@@ -1525,6 +1603,7 @@ const App: React.FC = () => {
                   <PinoutViewer
                     selectedBoardId={report.appendices?.selectedBoardId}
                     codeContent={report.appendices?.codeContent || ''}
+                    initialBoardState={report.appendices?.pinoutBoardState}
                     onSelectBoard={(boardId: string) => {
                       updateReport({
                         appendices: {
@@ -1533,12 +1612,21 @@ const App: React.FC = () => {
                         }
                       });
                     }}
-                    onExportToAppendix={(boardName: string, imageUrl: string) => {
+                    onBoardStateChange={(boardState: any) => {
+                      updateReport({
+                        appendices: {
+                          ...(report.appendices || {}),
+                          pinoutBoardState: boardState
+                        }
+                      });
+                    }}
+                    onExportToAppendix={(boardName: string, imageUrl: string, boardState: any) => {
                       updateReport({
                         appendices: {
                           ...(report.appendices || {}),
                           pinoutBoardName: boardName,
-                          pinoutBoardImage: imageUrl
+                          pinoutBoardImage: imageUrl,
+                          pinoutBoardState: boardState
                         }
                       });
                     }}
@@ -1947,14 +2035,38 @@ const App: React.FC = () => {
               </div>
 
               {report.appendices?.codeContent ? (
-                <div className="bg-slate-900 rounded-2xl p-6 overflow-x-auto">
-                  <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
-                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">PLATAFORMA: {report.appendices.selectedBoard || 'N/A'}</span>
-                  </div>
-                  <pre className="text-xs font-mono text-emerald-400 leading-relaxed">
-                    {report.appendices.codeContent}
-                  </pre>
-                </div>
+                (() => {
+                  const currentBoard = (report.appendices.selectedBoard || 'arduino').toLowerCase();
+                  let grammar = Prism.languages.clike;
+                  let langClass = 'language-cpp';
+
+                  if (currentBoard.includes('python')) {
+                    grammar = Prism.languages.python;
+                    langClass = 'language-python';
+                  } else if (currentBoard.includes('script') || currentBoard.includes('js')) {
+                    grammar = Prism.languages.javascript;
+                    langClass = 'language-javascript';
+                  }
+
+                  const highlightedCode = Prism.highlight(
+                    String(report.appendices.codeContent || ''),
+                    grammar,
+                    currentBoard
+                  );
+
+                  return (
+                    <div className={`bg-slate-900 rounded-[1.5rem] p-6 overflow-x-auto shadow-inner border-2 border-slate-800 w-[60%] mx-auto ${langClass}`}>
+                      <div className="flex justify-between items-center mb-4 border-b border-slate-700/50 pb-3">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center">
+                          <Code size={14} className="mr-2" /> PLATAFORMA: {report.appendices.selectedBoard || 'N/A'}
+                        </span>
+                      </div>
+                      <pre className={`text-xs font-mono leading-relaxed ${langClass} !bg-transparent !m-0 !p-0`} style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}>
+                        <code className={langClass} dangerouslySetInnerHTML={{ __html: highlightedCode }} />
+                      </pre>
+                    </div>
+                  );
+                })()
               ) : (
                 <div className="text-center p-12 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200">
                   <Code size={32} className="mx-auto text-slate-300 mb-2" />
@@ -1999,8 +2111,8 @@ const App: React.FC = () => {
                       />
                     </div>
                   </div>
-                  <div className="rounded-[2rem] overflow-hidden border-2 border-slate-100 shadow-sm relative group w-full">
-                    <img src={report.appendices.cirkitSchematicImage} className="w-full h-auto object-contain bg-white" />
+                  <div className="rounded-[2rem] overflow-hidden border-2 border-slate-100 shadow-sm relative group w-[60%] mx-auto">
+                    <img src={report.appendices.cirkitSchematicImage} className="w-full h-auto object-contain bg-white mx-auto" />
                     <div className="absolute inset-0 bg-black/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                       <span className="bg-black/50 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">Vista Previa</span>
                     </div>
@@ -2050,8 +2162,8 @@ const App: React.FC = () => {
                       />
                     </div>
                   </div>
-                  <div className="rounded-[2rem] overflow-hidden border-2 border-slate-100 shadow-sm relative group w-full">
-                    <img src={report.appendices.pinoutBoardImage} className="w-full h-auto object-contain bg-white" />
+                  <div className="rounded-[2rem] overflow-hidden border-2 border-slate-100 shadow-sm relative group w-[60%] mx-auto">
+                    <img src={report.appendices.pinoutBoardImage} className="w-full h-auto object-contain bg-white mx-auto" />
                     {report.appendices.pinoutBoardName && (
                       <div className="absolute bottom-4 left-4 bg-white/90 px-3 py-1 rounded-lg text-[10px] font-black text-[#004b87] uppercase tracking-widest shadow-sm">
                         {report.appendices.pinoutBoardName}

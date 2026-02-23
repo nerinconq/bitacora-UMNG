@@ -30,12 +30,14 @@ interface PinoutViewerProps {
     onSelectBoard: (boardId: string) => void;
     selectedBoardId?: string;
     codeContent?: string;
-    onExportToAppendix?: (boardName: string, imageUrl: string) => void;
+    initialBoardState?: any;
+    onExportToAppendix?: (boardName: string, imageUrl: string, boardState?: any) => void;
+    onBoardStateChange?: (boardState: any) => void;
 }
 
 const GPIO_BASE_URL = "https://thelastoutpostworkshop.github.io/microcontroller_devkit/gpio_viewer_1_5/";
 
-export const PinoutViewer: React.FC<PinoutViewerProps> = ({ onSelectBoard, selectedBoardId, codeContent, onExportToAppendix }) => {
+export const PinoutViewer: React.FC<PinoutViewerProps> = ({ onSelectBoard, selectedBoardId, codeContent, initialBoardState, onExportToAppendix, onBoardStateChange }) => {
     const [boards, setBoards] = useState<Board[]>([]);
     const [activeBoard, setActiveBoard] = useState<Board | null>(null);
     const [hoveredPin, setHoveredPin] = useState<Pin | null>(null);
@@ -141,7 +143,10 @@ export const PinoutViewer: React.FC<PinoutViewerProps> = ({ onSelectBoard, selec
 
         setBoards(initialBoards);
 
-        if (selectedBoardId) {
+        if (initialBoardState) {
+            setActiveBoard(initialBoardState);
+            onSelectBoard(initialBoardState.id);
+        } else if (selectedBoardId) {
             const found = initialBoards.find(b => b.id === selectedBoardId);
             if (found) setActiveBoard(found);
         } else {
@@ -156,6 +161,14 @@ export const PinoutViewer: React.FC<PinoutViewerProps> = ({ onSelectBoard, selec
             }
         }
     }, []);
+
+    // Sync board state upward automatically for persistence without requiring 'Exportar' click
+    useEffect(() => {
+        if (activeBoard && onBoardStateChange) {
+            onBoardStateChange(activeBoard);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeBoard]);
 
     const handleBoardChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const boardId = e.target.value;
@@ -271,7 +284,7 @@ export const PinoutViewer: React.FC<PinoutViewerProps> = ({ onSelectBoard, selec
     };
 
     return (
-        <div className="flex gap-4 lg:gap-8 h-[600px] font-sans relative">
+        <div className="flex gap-4 lg:gap-8 h-[780px] font-sans relative">
             {/* Library Modal Overlay */}
             {showLibrary && (
                 <div className="absolute inset-0 z-50 bg-slate-900/90 backdrop-blur-sm rounded-[2.5rem] flex flex-col p-8">
@@ -356,8 +369,44 @@ export const PinoutViewer: React.FC<PinoutViewerProps> = ({ onSelectBoard, selec
                                             backgroundColor: null, // Transparent if possible
                                             logging: false
                                         });
-                                        const base64 = canvas.toDataURL('image/png');
-                                        onExportToAppendix(activeBoard.name, base64);
+
+                                        // Auto-crop transparent pixels from edges to fix PDF scaling issues
+                                        const ctx = canvas.getContext('2d');
+                                        let base64 = canvas.toDataURL('image/png');
+                                        if (ctx) {
+                                            const w = canvas.width;
+                                            const h = canvas.height;
+                                            const imgData = ctx.getImageData(0, 0, w, h);
+                                            const data = imgData.data;
+
+                                            let minX = w, minY = h, maxX = 0, maxY = 0;
+                                            for (let y = 0; y < h; y++) {
+                                                for (let x = 0; x < w; x++) {
+                                                    const alpha = data[(y * w + x) * 4 + 3];
+                                                    if (alpha > 0) {
+                                                        if (x < minX) minX = x;
+                                                        if (x > maxX) maxX = x;
+                                                        if (y < minY) minY = y;
+                                                        if (y > maxY) maxY = y;
+                                                    }
+                                                }
+                                            }
+
+                                            const cropW = maxX - minX + 1;
+                                            const cropH = maxY - minY + 1;
+
+                                            // If valid bounds found and it actually needs cropping (saving space)
+                                            if (cropW > 0 && cropH > 0 && (cropW < w || cropH < h)) {
+                                                const cropCanvas = document.createElement('canvas');
+                                                cropCanvas.width = cropW;
+                                                cropCanvas.height = cropH;
+                                                const cropCtx = cropCanvas.getContext('2d');
+                                                cropCtx?.putImageData(ctx.getImageData(minX, minY, cropW, cropH), 0, 0);
+                                                base64 = cropCanvas.toDataURL('image/png');
+                                            }
+                                        }
+
+                                        onExportToAppendix(activeBoard.name, base64, activeBoard);
                                     } catch (e) {
                                         console.error("Export failed", e);
                                         alert("Error al exportar. Intente nuevamente.");
@@ -400,7 +449,7 @@ export const PinoutViewer: React.FC<PinoutViewerProps> = ({ onSelectBoard, selec
                             )}
 
                             {/* Line connections for pins */}
-                            <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="absolute inset-0 w-full h-full pointer-events-none z-0">
                                 {activeBoard.pins.map((pin, idx) => {
                                     if (pin.x === undefined || pin.y === undefined) return null;
                                     const isLeft = Number(pin.x) < 50;
@@ -461,7 +510,7 @@ export const PinoutViewer: React.FC<PinoutViewerProps> = ({ onSelectBoard, selec
             </div>
 
             {/* Right Panel: Pin Details */}
-            <div className="w-72 lg:w-80 bg-slate-900 text-white rounded-[2.5rem] shadow-2xl p-6 lg:p-8 flex flex-col overflow-hidden border border-slate-800">
+            <div className="w-44 lg:w-48 bg-slate-900 text-white rounded-[2.5rem] shadow-2xl p-6 lg:p-8 flex flex-col overflow-hidden border border-slate-800">
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="text-sm font-black uppercase tracking-[0.2em] flex items-center text-blue-400">
                         <Info size={16} className="mr-3" /> Pinout
