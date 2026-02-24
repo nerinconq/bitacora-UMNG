@@ -2570,7 +2570,7 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-[1600px] mx-auto mt-12 px-10 flex gap-12">
-        <aside className="w-72 space-y-4 shrink-0">
+        <aside className="w-72 space-y-4 shrink-0 sticky top-6 self-start max-h-[calc(100vh-2rem)] overflow-y-auto no-scrollbar">
           <div className="bg-white p-2 rounded-[3.5rem] shadow-2xl space-y-2 border-2 border-white">
             {steps.map(s => {
               const rubric = Array.isArray(report.rubric) ? report.rubric : DEFAULT_RUBRIC;
