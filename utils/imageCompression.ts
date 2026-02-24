@@ -32,8 +32,12 @@ export const compressImage = (source: File | string, maxDimension = 1024, qualit
                 return;
             }
 
+            // Fill background with white to prevent transparent PNGs from turning black
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, width, height);
+
             ctx.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', quality));
+            resolve(canvas.toDataURL('image/webp', quality));
         };
 
         img.onerror = reject;
