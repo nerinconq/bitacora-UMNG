@@ -1577,8 +1577,8 @@ const App: React.FC = () => {
                       updateReport({
                         appendices: {
                           ...(report.appendices || {}),
-                          cirkitSchematicImage: data.imageUrl || report.appendices?.cirkitSchematicImage,
-                          cirkitProjectId: data.projectUrl || report.appendices?.cirkitProjectId
+                          cirkitSchematicImage: data.imageUrl !== undefined ? data.imageUrl : report.appendices?.cirkitSchematicImage,
+                          cirkitProjectId: data.projectUrl !== undefined ? data.projectUrl : report.appendices?.cirkitProjectId
                         }
                       });
                     }}
