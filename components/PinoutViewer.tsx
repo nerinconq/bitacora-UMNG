@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import pinoutsData from '../utils/pinouts.json';
 import html2canvas from 'html2canvas';
 import { Info, Cpu, Plus, Globe, X, Edit2, Save, Trash2, Download, Loader2 } from 'lucide-react';
+import { compressImage } from '../utils/imageCompression';
 
 interface Pin {
     pin: number | string;
@@ -180,23 +181,24 @@ export const PinoutViewer: React.FC<PinoutViewerProps> = ({ onSelectBoard, selec
         }
     };
 
-    const handleUploadBoard = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleUploadBoard = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                const base64 = ev.target?.result as string;
+            try {
+                const compressedBase64 = await compressImage(file, 800, 0.6);
                 const newBoard: Board = {
                     id: `custom-${Date.now()}`,
                     name: `Custom Board (${file.name.substring(0, 10)}...)`,
-                    imageUrl: base64,
+                    imageUrl: compressedBase64,
                     pins: []
                 };
                 setBoards(prev => [...prev, newBoard]);
                 setActiveBoard(newBoard);
                 onSelectBoard(newBoard.id);
-            };
-            reader.readAsDataURL(file);
+            } catch (err) {
+                console.error("Error compressing board image", err);
+                alert("Error al procesar la imagen de la placa.");
+            }
         }
     };
 

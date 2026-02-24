@@ -21,6 +21,7 @@ import {
   DataSeries, IndirectVariable, VariableConfig
 } from './types';
 
+import { compressImage } from './utils/imageCompression';
 import { formatStudentName } from './utils/formatters';
 import { DesmosGraph } from './components/DesmosGraph';
 import { CodeEditor } from './components/CodeEditor';
@@ -499,12 +500,15 @@ const App: React.FC = () => {
     });
   }, []);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, field: keyof LabReport) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: keyof LabReport) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => updateReport({ [field]: ev.target?.result as string });
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImage(file, 1024, 0.6); // Slightly heavier compression to save quota
+        updateReport({ [field]: compressed });
+      } catch (err) {
+        console.error("Error compressing image", err);
+      }
     }
   };
 
@@ -2468,12 +2472,15 @@ const App: React.FC = () => {
                 <label className="text-[10px] font-black text-slate-400 uppercase ml-4 tracking-[0.2em]">Imagen (Opcional)</label>
                 <div className="w-full aspect-square bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 flex items-center justify-center relative overflow-hidden group hover:border-blue-200 transition-colors">
                   {editingMaterial.imageUrl ? <img src={editingMaterial.imageUrl} className="w-full h-full object-cover" /> : <div className="text-center"><ImageIcon size={32} className="mx-auto text-slate-200 mb-2" /><span className="text-[8px] font-black text-slate-300 uppercase">Click para subir</span></div>}
-                  <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={e => {
+                  <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (file) {
-                      const reader = new FileReader();
-                      reader.onload = ev => setEditingMaterial({ ...editingMaterial, imageUrl: ev.target?.result as string });
-                      reader.readAsDataURL(file);
+                      try {
+                        const compressed = await compressImage(file, 600, 0.6);
+                        setEditingMaterial({ ...editingMaterial, imageUrl: compressed });
+                      } catch (err) {
+                        console.error("Error compressing material image", err);
+                      }
                     }
                   }} />
                 </div>
