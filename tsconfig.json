@@ -28,9 +28,6 @@
   },
   "exclude": [
     "node_modules",
-    "dist",
-    "backups-codigo",
-    "dañado",
-    "temp-scripts"
+    "dist"
   ]
 }
