@@ -1985,7 +1985,15 @@ const App: React.FC = () => {
                 <DesmosGraph
                   data={getRegressionData(activeSeries)}
                   regressionParams={calculateStats(getRegressionData(activeSeries)) || undefined}
-                  onExport={(base64) => updateReport({ graphImageUrl: base64 })}
+                  onExport={async (base64) => {
+                    try {
+                      const compressed = await compressImage(base64, 1200, 0.7);
+                      updateReport({ graphImageUrl: compressed });
+                    } catch (e) {
+                      console.error('Failed to compress graph', e);
+                      updateReport({ graphImageUrl: base64 });
+                    }
+                  }}
                   height="800px" // Aumentado altura para dar espacio a herramientas completas
                 />
 

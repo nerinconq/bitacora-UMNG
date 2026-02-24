@@ -374,7 +374,7 @@ export const PinoutViewer: React.FC<PinoutViewerProps> = ({ onSelectBoard, selec
 
                                         // Auto-crop transparent pixels from edges to fix PDF scaling issues
                                         const ctx = canvas.getContext('2d');
-                                        let base64 = canvas.toDataURL('image/png');
+                                        let base64 = canvas.toDataURL('image/webp', 0.7);
                                         if (ctx) {
                                             const w = canvas.width;
                                             const h = canvas.height;
@@ -404,7 +404,7 @@ export const PinoutViewer: React.FC<PinoutViewerProps> = ({ onSelectBoard, selec
                                                 cropCanvas.height = cropH;
                                                 const cropCtx = cropCanvas.getContext('2d');
                                                 cropCtx?.putImageData(ctx.getImageData(minX, minY, cropW, cropH), 0, 0);
-                                                base64 = cropCanvas.toDataURL('image/png');
+                                                base64 = cropCanvas.toDataURL('image/webp', 0.7);
                                             }
                                         }
 
