@@ -810,32 +810,40 @@ const App: React.FC = () => {
               return 0;
             }
           }
-          // Validate format before adding
-          if (!finalData.match(/^data:image\/(png|jpeg|jpg);base64,/)) {
+
+          if (!finalData.match(/^data:image\/(png|jpeg|jpg|webp);base64,/)) {
             console.warn('Skipping invalid image format:', finalData.substring(0, 50));
             return 0;
           }
 
           let format = 'PNG';
           if (finalData.startsWith('data:image/jpeg')) format = 'JPEG';
+          if (finalData.startsWith('data:image/webp')) format = 'WEBP';
 
-          // Load image to get true dimensions for aspect ratio
-          const imgProps = await new Promise<{ width: number, height: number }>((resolve, reject) => {
+          const imgProps = await new Promise<{ width: number, height: number, img: HTMLImageElement }>((resolve, reject) => {
             const img = new Image();
-            img.onload = () => resolve({ width: img.width, height: img.height });
+            img.onload = () => resolve({ width: img.width, height: img.height, img });
             img.onerror = reject;
             img.src = finalData;
           });
 
-          const ratio = imgProps.width / imgProps.height;
-          // We have a target box w x h. We want to fit inside this box preserving aspect ratio.
-          // However, for appendices, we explicitly passed w = 130*scale, h = 80*scale.
-          // The user complains about Y compression. 
-          // If we prioritize width:
-          const calculatedH = w / ratio;
+          // jsPDF does not support WEBP natively. Transcode to JPEG on the fly
+          if (format === 'WEBP') {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = imgProps.width;
+            tempCanvas.height = imgProps.height;
+            const tCtx = tempCanvas.getContext('2d');
+            if (tCtx) {
+              tCtx.fillStyle = '#FFFFFF';
+              tCtx.fillRect(0, 0, imgProps.width, imgProps.height);
+              tCtx.drawImage(imgProps.img, 0, 0);
+              finalData = tempCanvas.toDataURL('image/jpeg', 0.9);
+              format = 'JPEG';
+            }
+          }
 
-          // If calculated height exceeds our max h (if we want to limit), we scale down.
-          // But here, let's prioritize aspect ratio based on width, as 130mm is our column constraint.
+          const ratio = imgProps.width / imgProps.height;
+          const calculatedH = w / ratio;
 
           doc.addImage(finalData, format, x, y, w, calculatedH, undefined, 'FAST');
           return calculatedH;
